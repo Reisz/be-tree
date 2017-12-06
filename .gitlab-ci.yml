@@ -1,0 +1,63 @@
+# ---------------------------------------------------------------------------
+# IMLAB
+# ---------------------------------------------------------------------------
+
+stages:
+    - build
+    - test
+    - cleanup
+
+make:
+    stage: build
+    script: 
+        - mkdir -p build
+        - cd build
+        - cmake -DCMAKE_BUILD_TYPE=Debug ..
+        - make
+    cache:
+        key: "$CI_COMMIT_REF_NAME"
+        paths:
+            - build/
+        policy: pull-push
+    tags:
+        - "clang-5.0"
+        - "cmake"
+        - "python3"
+
+tester:
+    stage: test
+    script:
+        - ./build/tester
+    cache:
+        key: "$CI_COMMIT_REF_NAME"
+        paths:
+            - build/
+        policy: pull
+    tags:
+        - "clang-5.0"
+        - "cmake"
+        - "python3"
+
+cpplint:
+    stage: test
+    script:
+        - mkdir -p build
+        - cd build
+        - cmake -DCMAKE_BUILD_TYPE=Debug ..
+        - make lint
+    tags:
+        - "clang-5.0"
+        - "cmake"
+        - "python3"
+
+clear_cache:
+    stage: cleanup
+    script:
+        - rm -rf ./build/*
+    cache:
+        key: "$CI_COMMIT_REF_NAME"
+        paths:
+            - build/
+        policy: pull-push
+    when: manual
+    allow_failure: true

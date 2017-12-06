@@ -8,10 +8,6 @@ cmake_minimum_required(VERSION 3.7)
 # Environment
 # ---------------------------------------------------------------------------
 
-if (NOT UNIX)
-    message(STATUS FATAL_ERROR "Unsupported OS")
-endif (NOT UNIX)
-
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/")
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)

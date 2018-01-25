@@ -29,6 +29,7 @@ find_package(Threads REQUIRED)
 
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 
+include("${CMAKE_SOURCE_DIR}/vendor/benchmark.cmake")
 include("${CMAKE_SOURCE_DIR}/vendor/googletest.cmake")
 include("${CMAKE_SOURCE_DIR}/vendor/gflags.cmake")
 include("${CMAKE_SOURCE_DIR}/vendor/cpplint.cmake")
@@ -57,6 +58,12 @@ include("${CMAKE_SOURCE_DIR}/tools/local.cmake")
 # ---------------------------------------------------------------------------
 
 include("${CMAKE_SOURCE_DIR}/test/local.cmake")
+
+# ---------------------------------------------------------------------------
+# Benchmarks
+# ---------------------------------------------------------------------------
+
+include("${CMAKE_SOURCE_DIR}/bench/local.cmake")
 
 # ---------------------------------------------------------------------------
 # Linting

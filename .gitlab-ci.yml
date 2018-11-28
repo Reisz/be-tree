@@ -20,7 +20,7 @@ make:
             - build/
         policy: pull-push
     tags:
-        - "clang-5.0"
+        - "clang-7"
         - "cmake"
         - "python3"
 
@@ -34,7 +34,7 @@ tester:
             - build/
         policy: pull
     tags:
-        - "clang-5.0"
+        - "clang-7"
         - "cmake"
         - "python3"
 
@@ -46,18 +46,6 @@ cpplint:
         - cmake -DCMAKE_BUILD_TYPE=Debug ..
         - make lint
     tags:
-        - "clang-5.0"
+        - "clang-7"
         - "cmake"
         - "python3"
-
-clear_cache:
-    stage: cleanup
-    script:
-        - rm -rf ./build/*
-    cache:
-        key: "$CI_COMMIT_REF_NAME"
-        paths:
-            - build/
-        policy: pull-push
-    when: manual
-    allow_failure: true

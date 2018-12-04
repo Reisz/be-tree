@@ -3,7 +3,7 @@
 # ---------------------------------------------------------------------------
 
 include(ExternalProject)
-find_package(PythonInterp)
+find_package(PythonInterp 2)
 
 # Get cpplint
 ExternalProject_Add(

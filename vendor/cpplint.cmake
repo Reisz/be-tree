@@ -9,8 +9,8 @@ find_package(PythonInterp 2)
 ExternalProject_Add(
     cpplint_src
     PREFIX "vendor/cpplint"
-    GIT_REPOSITORY "https://github.com/google/styleguide.git"
-    GIT_TAG 71ec7f1e524969c19ce33cfc72e8e023f2b98ee2
+    GIT_REPOSITORY "https://github.com/cpplint/cpplint.git"
+    GIT_TAG 2a22afe32b7bf4a1ebd7832e203fe8e97c89ee85
     TIMEOUT 10
     CONFIGURE_COMMAND ""
     BUILD_COMMAND ""
@@ -20,7 +20,7 @@ ExternalProject_Add(
 
 # CppLint script path
 ExternalProject_Get_Property(cpplint_src source_dir)
-set(CPPLINT_SCRIPT_PATH "${source_dir}/cpplint/cpplint.py")
+set(CPPLINT_SCRIPT_PATH "${source_dir}/cpplint.py")
 
 # Add target to lint the given source files
 function(add_cpplint_target TARGET INPUT)
@@ -45,7 +45,7 @@ function(add_cpplint_target TARGET INPUT)
                 "--counting=detailed"
                 "--extensions=cc,h"
                 "--linelength=200"
-                "--filter=-legal/copyright,-runtime/references,-readability/todo,-runtime/printf_format"
+                "--filter=-legal/copyright,-runtime/references,-readability/todo,-build/c++11,-build/c++14"
                 ${INPUT}
         DEPENDS cpplint_src
         COMMENT "Running ${TARGET}"

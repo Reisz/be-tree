@@ -1,11 +1,11 @@
 // ---------------------------------------------------------------------------
 // IMLAB
 // ---------------------------------------------------------------------------
-#include <boost/filesystem.hpp>
 #include <algorithm>
 #include <sstream>
 #include <fstream>
 #include <unordered_map>
+#include <boost/filesystem.hpp>
 #include "gflags/gflags.h"
 // ---------------------------------------------------------------------------------------------------
 namespace filesystem = boost::filesystem;

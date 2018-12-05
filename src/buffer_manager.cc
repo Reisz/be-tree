@@ -5,12 +5,22 @@ namespace imlab {
 
 namespace {
 
-    void load_page(Page *p) {
-        // TODO
+    const char *save_directory() {
+        static const char *save_directory = nullptr;
+        if (!save_directory) {
+            // TODO look in env
+            save_directory = "/tmp/";
+        }
+
+        return save_directory;
     }
 
-    void save_page(Page * p) {
-        // TODO
+    void load_page(Page *p, size_t page_size) {
+        p->data = new uint8_t[page_size];  // TODO
+    }
+
+    void save_page(Page * p, size_t page_size) {
+        delete reinterpret_cast<uint8_t*>(p->data);  // TODO
     }
 
 }  // namespace
@@ -69,7 +79,8 @@ Page *BufferManager::fix(uint64_t page_id, bool exclusive) {
 }
 
 void BufferManager::unfix(Page *page) {
-    // TODO
+    std::unique_lock<std::mutex> lock(mutex);
+    page->unfix();
 }
 
 Page *BufferManager::try_fix_existing(PageMap::iterator it, bool exclusive) {
@@ -110,7 +121,7 @@ Page *BufferManager::try_fix_new(PageMap::iterator it, bool exclusive) {
     add_to_fifo(&p);
 
     // TODO unlock
-    load_page(&p);
+    load_page(&p, page_size);
     // TODO relock
     p.data_state = Page::Clean;
     // TODO notify?
@@ -130,7 +141,7 @@ bool BufferManager::try_reserve_space() {
         if (steal->data_state == Page::Dirty) {
             steal->data_state = Page::Writing;
             // TODO unlock
-            save_page(steal);
+            save_page(steal, page_size);
             // TODO relock
             // TODO notify ?
         }

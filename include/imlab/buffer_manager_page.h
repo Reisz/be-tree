@@ -17,6 +17,7 @@ struct Page {
 
     bool can_fix(bool exclusive);
     void fix(bool exclusive);
+    void unfix();
 
     uint64_t page_id;
     int32_t fix_count = 0;

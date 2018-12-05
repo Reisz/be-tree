@@ -91,7 +91,7 @@ class BufferManager {
     void add_to_lru(Page *p);
     void remove_from_queues(Page *p);
     Page *find_unfixed();
-    Page *fifo_head, *fifo_tail, *lru_head, *lru_tail;
+    Page *fifo_head = nullptr, *fifo_tail = nullptr, *lru_head = nullptr, *lru_tail = nullptr;
 
     // global mutex
     // TODO finer lock granularity

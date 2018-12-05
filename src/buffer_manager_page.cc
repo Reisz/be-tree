@@ -16,5 +16,12 @@ void Page::fix(bool exclusive) {
         fix_count++;
 }
 
+void Page::unfix() {
+    if (fix_count > 0)
+        --fix_count;
+    else
+        fix_count = 0;
+}
+
 }  // namespace imlab
 // ---------------------------------------------------------------------------------------------------

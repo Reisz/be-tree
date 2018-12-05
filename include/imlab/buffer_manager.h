@@ -6,7 +6,11 @@
 
 #include <stddef.h>
 #include <vector>
+#include <unordered_map>
+#include <mutex>
+#include <atomic>
 #include <memory>
+#include "imlab/buffer_manager_page.h"
 // ---------------------------------------------------------------------------------------------------
 namespace imlab {
 
@@ -56,9 +60,14 @@ class BufferManager {
 
  private:
     void unfix(Page *page, bool dirty);
+    void prepeare_fix();
 
-    std::vector<Page> pages;
+    size_t page_size, page_count;
+    std::atomic<size_t> loaded_page_count = 0;
     Page *fifo_head, *fifo_tail, *lru_head, *lru_tail;
+
+    std::mutex mutex;
+    std::unordered_map<uint64_t, Page> pages;
 };
 
 }  // namespace imlab

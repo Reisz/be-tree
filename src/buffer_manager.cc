@@ -3,18 +3,20 @@
 // ---------------------------------------------------------------------------------------------------
 namespace imlab {
 
-struct Page {};
-
 BufferFix::~BufferFix() {
     unfix();
 }
 
 void *BufferFix::getData() {
-    return nullptr;  // TODO redirect page access
+    if (page)
+        return page->data;
+    return nullptr;
 }
 
 const void *BufferFix::getData() const {
-    return nullptr;  // TODO redirect page access
+    if (page)
+        return page->data;
+    return nullptr;
 }
 
 void BufferFix::unfix() {
@@ -25,9 +27,8 @@ void BufferFix::unfix() {
 
 // ---------------------------------------------------------------------------------------------------
 
-BufferManager::BufferManager(size_t page_size, size_t page_count) {
-    pages.resize(page_count);
-}
+BufferManager::BufferManager(size_t page_size, size_t page_count)
+: page_size(page_size), page_count(page_count) {}
 
 BufferManager::~BufferManager() {
     // TODO unfix pages

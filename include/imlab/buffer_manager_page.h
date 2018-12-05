@@ -9,15 +9,19 @@
 namespace imlab {
 
 struct Page {
-    enum DataState { Invalid, Reading, Clean, Dirty, Writing };
+    enum DataState { Reading, Clean, Dirty, Writing };
 
-    explicit Page() = default;
+    constexpr explicit Page(uint64_t page_id)
+        : page_id(page_id) {}
     ~Page() = default;
 
-    uint64_t page_id;
-    int32_t fix_count;
+    bool can_fix(bool exclusive);
+    void fix(bool exclusive);
 
-    DataState data_state = Invalid;
+    uint64_t page_id;
+    int32_t fix_count = 0;
+
+    DataState data_state = Reading;
     void *data = nullptr;
 
     Page *prev = nullptr, *next = nullptr;

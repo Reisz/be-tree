@@ -30,13 +30,13 @@ class BufferFix {
     ~BufferFix();
 
     // get pointer for non exclusive fix
-    const void *getData() const;
+    const void *data() const;
     // get pointer for exclusive fix
-    void *getData();
+    void *data();
 
     // mark page for writeback
-    inline void setDirty() { dirty = true; }
-    // declare this fix unecessary
+    void set_dirty();
+    // unfix page and invalidate this object
     void unfix();
 
  private:
@@ -45,7 +45,13 @@ class BufferFix {
         : page(page), manager(manager) {}
     BufferManager *manager;
     Page *page = nullptr;
-    bool dirty = false;
+};
+
+class buffer_full_error : public std::exception {
+ public:
+    const char* what() const noexcept override {
+        return "buffer is full";
+    }
 };
 
 class BufferManager {
@@ -54,20 +60,42 @@ class BufferManager {
     explicit BufferManager(size_t page_size, size_t page_count);
     ~BufferManager();
 
-    const BufferFix fix(uint64_t page_id);
-    BufferFix fix_exclusive(uint64_t page_id);
-    void unfix(BufferFix &&page);
+    inline const BufferFix fix(uint64_t page_id) {
+        return BufferFix(fix(page_id, false), this);
+    }
+
+    BufferFix fix_exclusive(uint64_t page_id) {
+        return BufferFix(fix(page_id, true), this);
+    }
+
+    inline void unfix(BufferFix &&fix) {
+        unfix(fix.page);
+    }
 
  private:
-    void unfix(Page *page, bool dirty);
-    void prepeare_fix();
+    using PageMap = std::unordered_map<uint64_t, Page>;
 
-    size_t page_size, page_count;
-    std::atomic<size_t> loaded_page_count = 0;
+    // fix management
+    Page *fix(uint64_t page_id, bool exclusive);
+    void unfix(Page *page);
+
+    Page *try_fix_existing(PageMap::iterator it, bool exclusive);
+    Page *try_fix_new(PageMap::iterator it, bool exclusive);
+    bool try_reserve_space();
+
+    size_t page_size, page_count, loaded_page_count = 0;
+    PageMap pages;
+
+    // queue management
+    void add_to_fifo(Page *p);
+    void add_to_lru(Page *p);
+    void remove_from_queues(Page *p);
+    Page *find_unfixed();
     Page *fifo_head, *fifo_tail, *lru_head, *lru_tail;
 
+    // global mutex
+    // TODO finer lock granularity
     std::mutex mutex;
-    std::unordered_map<uint64_t, Page> pages;
 };
 
 }  // namespace imlab

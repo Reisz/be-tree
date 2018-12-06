@@ -16,8 +16,6 @@ namespace imlab {
 
 class BufferManager;
 
-struct Page;
-
 // owned representation of a fix on a page
 class BufferFix {
     friend class BufferManager;
@@ -36,7 +34,7 @@ class BufferFix {
 
     // mark page for writeback
     void set_dirty();
-    // unfix page and invalidate this object
+    // unfix page, automatically called on destruction
     void unfix();
 
  private:
@@ -60,16 +58,12 @@ class BufferManager {
     explicit BufferManager(size_t page_size, size_t page_count);
     ~BufferManager();
 
+    // fix interface
     inline const BufferFix fix(uint64_t page_id) {
         return BufferFix(fix(page_id, false), this);
     }
-
     BufferFix fix_exclusive(uint64_t page_id) {
         return BufferFix(fix(page_id, true), this);
-    }
-
-    inline void unfix(BufferFix &&fix) {
-        unfix(fix.page);
     }
 
     // testing interface, not linked in prod code

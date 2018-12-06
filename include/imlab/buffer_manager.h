@@ -4,6 +4,7 @@
 #ifndef INCLUDE_IMLAB_BUFFER_MANAGER_H_
 #define INCLUDE_IMLAB_BUFFER_MANAGER_H_
 
+#include <stdint.h>
 #include <stddef.h>
 #include <vector>
 #include <unordered_map>

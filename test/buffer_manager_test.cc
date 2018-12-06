@@ -53,6 +53,33 @@ TEST(BufferManager, FixSingle) {
         ASSERT_EQ(expected_values, values);
     }
 }
+
+TEST(BufferManager, PersistentRestart) {
+    {
+        imlab::BufferManager buffer_manager{1024, 10};
+        for (uint16_t segment = 0; segment < 3; ++segment) {
+            for (uint64_t segment_page = 0; segment_page < 10; ++segment_page) {
+                uint64_t page_id = (static_cast<uint64_t>(segment) << 48) | segment_page;
+                auto fix = buffer_manager.fix_exclusive(page_id);
+                uint64_t& value = *reinterpret_cast<uint64_t*>(fix.data());
+                value = segment * 10 + segment_page;
+                fix.set_dirty();
+            }
+        }
+    }
+    {
+        imlab::BufferManager buffer_manager{1024, 10};
+        for (uint16_t segment = 0; segment < 3; ++segment) {
+            for (uint64_t segment_page = 0; segment_page < 10; ++segment_page) {
+                uint64_t page_id = (static_cast<uint64_t>(segment) << 48) | segment_page;
+                auto fix = buffer_manager.fix(page_id);
+                uint64_t value = *reinterpret_cast<uint64_t*>(fix.data());
+                fix.unfix();
+                EXPECT_EQ(segment * 10 + segment_page, value);
+            }
+        }
+    }
+}
 // ---------------------------------------------------------------------------------------------------
 }  // namespace
 // ---------------------------------------------------------------------------------------------------

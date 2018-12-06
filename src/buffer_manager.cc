@@ -1,26 +1,19 @@
 // ---------------------------------------------------------------------------------------------------
+#include "imlab/segment_file.h"
 #include "imlab/buffer_manager.h"
 // ---------------------------------------------------------------------------------------------------
 namespace imlab {
 
 namespace {
 
-    const char *save_directory() {
-        static const char *save_directory = nullptr;
-        if (!save_directory) {
-            // TODO look in env
-            save_directory = "/tmp/";
-        }
-
-        return save_directory;
+    void load_page(Page &p, size_t page_size) {
+        SegmentFile f{p.page_id, page_size};
+        f.read(p.data.get());
     }
 
-    void load_page(Page *p, size_t page_size) {
-        p->data = new uint8_t[page_size];  // TODO
-    }
-
-    void save_page(Page * p, size_t page_size) {
-        delete reinterpret_cast<uint8_t*>(p->data);  // TODO
+    void save_page(Page &p, size_t page_size) {
+        SegmentFile f{p.page_id, page_size};
+        f.write(p.data.get());
     }
 
 }  // namespace
@@ -31,13 +24,13 @@ BufferFix::~BufferFix() {
 
 void *BufferFix::data() {
     if (page)
-        return page->data;
+        return page->data.get();
     return nullptr;
 }
 
 const void *BufferFix::data() const {
     if (page)
-        return page->data;
+        return page->data.get();
     return nullptr;
 }
 
@@ -58,7 +51,8 @@ BufferManager::BufferManager(size_t page_size, size_t page_count)
 
 BufferManager::~BufferManager() {
     for (auto &entry : pages) {
-        // TODO save page
+        if (entry.second.data_state == Page::Dirty)
+            save_page(entry.second, page_size);
     }
 }
 
@@ -71,7 +65,10 @@ Page *BufferManager::fix(uint64_t page_id, bool exclusive) {
         if (it != pages.end()) {
             p = try_fix_existing(it, exclusive);
         } else {
-            p = try_fix_new(pages.emplace_hint(it, page_id, page_id), exclusive);
+            p = try_fix_new(pages.emplace_hint(it,
+                std::piecewise_construct,
+                std::forward_as_tuple(page_id),
+                std::forward_as_tuple(page_id, page_size)), exclusive);
         }
     }
 
@@ -121,7 +118,7 @@ Page *BufferManager::try_fix_new(PageMap::iterator it, bool exclusive) {
     add_to_fifo(&p);
 
     // TODO unlock
-    load_page(&p, page_size);
+    load_page(p, page_size);
     // TODO relock
     p.data_state = Page::Clean;
     // TODO notify?
@@ -141,7 +138,7 @@ bool BufferManager::try_reserve_space() {
         if (steal->data_state == Page::Dirty) {
             steal->data_state = Page::Writing;
             // TODO unlock
-            save_page(steal, page_size);
+            save_page(*steal, page_size);
             // TODO relock
             // TODO notify ?
         }

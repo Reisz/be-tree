@@ -3,6 +3,9 @@
 // ---------------------------------------------------------------------------------------------------
 namespace imlab {
 
+Page::Page(uint64_t page_id, size_t page_size)
+    : page_id(page_id), data(new uint8_t[page_size]) {}
+
 bool Page::can_fix(bool exclusive) {
     if (exclusive)
         return fix_count == 0;

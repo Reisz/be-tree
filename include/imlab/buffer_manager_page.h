@@ -5,14 +5,15 @@
 #define INCLUDE_IMLAB_BUFFER_MANAGER_PAGE_H_
 
 #include <stdint.h>
+#include <stddef.h>
+#include <memory>
 // ---------------------------------------------------------------------------------------------------
 namespace imlab {
 
 struct Page {
     enum DataState { Reading, Clean, Dirty, Writing };
 
-    constexpr explicit Page(uint64_t page_id)
-        : page_id(page_id) {}
+    Page(uint64_t page_id, size_t page_size);
     ~Page() = default;
 
     bool can_fix(bool exclusive);
@@ -23,7 +24,7 @@ struct Page {
     int32_t fix_count = 0;
 
     DataState data_state = Reading;
-    void *data = nullptr;
+    std::unique_ptr<uint8_t> data;
 
     Page *prev = nullptr, *next = nullptr;
 };

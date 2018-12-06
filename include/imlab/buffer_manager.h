@@ -72,6 +72,10 @@ class BufferManager {
         unfix(fix.page);
     }
 
+    // testing interface, not linked in prod code
+    const std::vector<uint64_t> get_fifo() const;
+    const std::vector<uint64_t> get_lru() const;
+
  private:
     using PageMap = std::unordered_map<uint64_t, Page>;
 

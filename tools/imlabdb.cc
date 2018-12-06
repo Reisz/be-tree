@@ -7,6 +7,7 @@
 #include <unordered_map>
 #include <boost/filesystem.hpp>
 #include "gflags/gflags.h"
+#include "imlab/buffer_manager.h"
 // ---------------------------------------------------------------------------------------------------
 namespace filesystem = boost::filesystem;
 // ---------------------------------------------------------------------------------------------------
@@ -25,6 +26,7 @@ bool ValidateDirectory(const char *flagname, const std::string &value) {
 }  // namespace
 // ---------------------------------------------------------------------------------------------------
 int main(int argc, char *argv[]) {
+    imlab::BufferManager manager{1024, 10};
     return 0;
 }
 // ---------------------------------------------------------------------------------------------------

@@ -42,23 +42,32 @@ class BufferFix {
 
     // unfix page automatically
     ~BufferFix();
+    void unfix();
 
     // get pointer for non exclusive fix
     const void *data() const;
-    // get pointer for exclusive fix
-    void *data();
 
-    // mark page for writeback
-    void set_dirty();
-    // unfix page, automatically called on destruction
-    void unfix();
+ protected:
+    constexpr BufferFix(Page *page, BufferManager *manager)
+        : page(page), manager(manager) {}
+    Page *page = nullptr;
 
  private:
-    // data management
-    explicit BufferFix(Page *page, BufferManager *manager)
-        : page(page), manager(manager) {}
     BufferManager *manager;
-    Page *page = nullptr;
+};
+
+class BufferFixExclusive : public BufferFix {
+    friend class BufferManager;
+public:
+    BufferFixExclusive() = default;
+
+    // get pointer for exclusive fix
+    void *data();
+    // mark page for writeback
+    void set_dirty();
+ private:
+    constexpr BufferFixExclusive(Page *page, BufferManager *manager)
+        : BufferFix(page, manager) {}
 };
 
 class buffer_full_error : public std::exception {
@@ -75,11 +84,11 @@ class BufferManager {
     ~BufferManager();
 
     // fix interface
-    inline const BufferFix fix(uint64_t page_id) {
+    inline BufferFix fix(uint64_t page_id) {
         return BufferFix(fix(page_id, false), this);
     }
-    BufferFix fix_exclusive(uint64_t page_id) {
-        return BufferFix(fix(page_id, true), this);
+    inline BufferFixExclusive fix_exclusive(uint64_t page_id) {
+        return BufferFixExclusive(fix(page_id, true), this);
     }
 
     // testing interface, not linked in prod code

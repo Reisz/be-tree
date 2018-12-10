@@ -22,10 +22,10 @@ BufferFix::~BufferFix() {
     unfix();
 }
 
-void *BufferFix::data() {
+void BufferFix::unfix() {
     if (page)
-        return page->data.get();
-    return nullptr;
+    manager->unfix(page);
+    page = nullptr;
 }
 
 const void *BufferFix::data() const {
@@ -34,14 +34,14 @@ const void *BufferFix::data() const {
     return nullptr;
 }
 
-void BufferFix::set_dirty() {
-    page->data_state = Page::Dirty;
+void *BufferFixExclusive::data() {
+    if (page)
+    return page->data.get();
+    return nullptr;
 }
 
-void BufferFix::unfix() {
-    if (page)
-        manager->unfix(page);
-    page = nullptr;
+void BufferFixExclusive::set_dirty() {
+    page->data_state = Page::Dirty;
 }
 
 // ---------------------------------------------------------------------------------------------------

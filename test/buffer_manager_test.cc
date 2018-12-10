@@ -46,7 +46,6 @@ TEST(BufferManager, FixSingle) {
         std::vector<uint64_t> values(1024 / sizeof(uint64_t));
         auto fix = manager.fix(1);
         std::memcpy(values.data(), fix.data(), 1024);
-        fix.set_dirty();
         fix.unfix();
         EXPECT_TRUE(manager.get_fifo().empty());
         EXPECT_EQ(std::vector<uint64_t>{1}, manager.get_lru());
@@ -73,7 +72,7 @@ TEST(BufferManager, PersistentRestart) {
             for (uint64_t segment_page = 0; segment_page < 10; ++segment_page) {
                 uint64_t page_id = (static_cast<uint64_t>(segment) << 48) | segment_page;
                 auto fix = manager.fix(page_id);
-                uint64_t value = *reinterpret_cast<uint64_t*>(fix.data());
+                uint64_t value = *reinterpret_cast<const uint64_t*>(fix.data());
                 fix.unfix();
                 EXPECT_EQ(segment * 10 + segment_page, value);
             }

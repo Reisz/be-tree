@@ -22,8 +22,23 @@ class BufferFix {
     friend class BufferManager;
  public:
     BufferFix() = default;
-    BufferFix(BufferFix &) = delete;
-    BufferFix(BufferFix &&) = default;
+    BufferFix(const BufferFix &) = delete;
+    BufferFix &operator=(const BufferFix &) = delete;
+    inline BufferFix(BufferFix &&o) noexcept {
+        *this = std::move(o);
+    }
+    constexpr BufferFix &operator=(BufferFix &&o) noexcept {
+        if (this != &o) {
+            unfix();
+
+            this->manager = o.manager;
+            this->page = o.page;
+
+            o.page = nullptr;
+        }
+
+        return *this;
+    }
 
     // unfix page automatically
     ~BufferFix();

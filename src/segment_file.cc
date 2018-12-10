@@ -61,16 +61,16 @@ SegmentFile::~SegmentFile() {
 }
 
 
-void SegmentFile::read(uint8_t *data) {
+void SegmentFile::read(std::byte *data) {
     prw_loop(pread, data);
 }
 
-void SegmentFile::write(uint8_t *data) {
+void SegmentFile::write(std::byte *data) {
     prw_loop(pwrite, data);
 }
 
 
-template<typename Op> void SegmentFile::prw_loop(Op op, uint8_t *data) {
+template<typename Op> void SegmentFile::prw_loop(Op op, std::byte *data) {
     size_t total_bytes = 0;
     while (total_bytes < page_size) {
         ssize_t bytes = op(fd, data + total_bytes, page_size - total_bytes, pos + total_bytes);

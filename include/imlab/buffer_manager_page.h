@@ -4,8 +4,7 @@
 #ifndef INCLUDE_IMLAB_BUFFER_MANAGER_PAGE_H_
 #define INCLUDE_IMLAB_BUFFER_MANAGER_PAGE_H_
 
-#include <stdint.h>
-#include <stddef.h>
+#include <cstddef>
 #include <memory>
 // ---------------------------------------------------------------------------------------------------
 namespace imlab {
@@ -24,7 +23,7 @@ struct Page {
     int32_t fix_count = 0;
 
     DataState data_state = Reading;
-    std::unique_ptr<uint8_t> data;
+    std::unique_ptr<std::byte[]> data;
 
     Page *prev = nullptr, *next = nullptr;
 };

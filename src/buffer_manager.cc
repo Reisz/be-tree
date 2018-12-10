@@ -28,13 +28,13 @@ void BufferFix::unfix() {
     page = nullptr;
 }
 
-const void *BufferFix::data() const {
+const std::byte *BufferFix::data() const {
     if (page)
         return page->data.get();
     return nullptr;
 }
 
-void *BufferFixExclusive::data() {
+std::byte *BufferFixExclusive::data() {
     if (page)
     return page->data.get();
     return nullptr;

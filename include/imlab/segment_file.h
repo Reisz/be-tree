@@ -5,7 +5,7 @@
 #define INCLUDE_IMLAB_SEGMENT_FILE_H_
 
 #include <stdint.h>
-#include <stddef.h>
+#include <cstddef>
 // ---------------------------------------------------------------------------------------------------
 namespace imlab {
 
@@ -14,11 +14,11 @@ class SegmentFile {
     SegmentFile(uint64_t page_id, size_t page_size);
     ~SegmentFile();
 
-    void read(uint8_t *data);
-    void write(uint8_t *data);
+    void read(std::byte *data);
+    void write(std::byte *data);
 
  private:
-    template<typename Op> void prw_loop(Op op, uint8_t *data);
+    template<typename Op> void prw_loop(Op op, std::byte *data);
 
     int fd;
     uint64_t pos;

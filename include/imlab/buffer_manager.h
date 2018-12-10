@@ -4,12 +4,10 @@
 #ifndef INCLUDE_IMLAB_BUFFER_MANAGER_H_
 #define INCLUDE_IMLAB_BUFFER_MANAGER_H_
 
-#include <stdint.h>
-#include <stddef.h>
+#include <cstddef>
 #include <vector>
 #include <unordered_map>
 #include <mutex>
-#include <atomic>
 #include <memory>
 #include "imlab/buffer_manager_page.h"
 // ---------------------------------------------------------------------------------------------------
@@ -45,7 +43,7 @@ class BufferFix {
     void unfix();
 
     // get pointer for non exclusive fix
-    const void *data() const;
+    const std::byte *data() const;
 
  protected:
     constexpr BufferFix(Page *page, BufferManager *manager)
@@ -62,7 +60,7 @@ class BufferFixExclusive : public BufferFix {
     BufferFixExclusive() = default;
 
     // get pointer for exclusive fix
-    void *data();
+    std::byte *data();
     // mark page for writeback
     void set_dirty();
  private:
@@ -96,18 +94,19 @@ class BufferManager {
     const std::vector<uint64_t> get_lru() const;
 
  private:
-    using PageMap = std::unordered_map<uint64_t, Page>;
-
     // fix management
     Page *fix(uint64_t page_id, bool exclusive);
     void unfix(Page *page);
+
+    using PageMap = std::unordered_map<uint64_t, Page>;
+    PageMap pages;
 
     Page *try_fix_existing(PageMap::iterator it, bool exclusive);
     Page *try_fix_new(PageMap::iterator it, bool exclusive);
     bool try_reserve_space();
 
-    size_t page_size, page_count, loaded_page_count = 0;
-    PageMap pages;
+    const size_t page_size, page_count;
+    size_t loaded_page_count = 0;
 
     // queue management
     void add_to_fifo(Page *p);

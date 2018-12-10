@@ -58,7 +58,7 @@ class BufferFix {
 
 class BufferFixExclusive : public BufferFix {
     friend class BufferManager;
-public:
+ public:
     BufferFixExclusive() = default;
 
     // get pointer for exclusive fix

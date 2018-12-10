@@ -28,7 +28,7 @@ const std::vector<uint64_t> imlab::BufferManager::get_lru() const {
 
     return result;
 }
-
+// ---------------------------------------------------------------------------------------------------
 namespace {
 // ---------------------------------------------------------------------------------------------------
 TEST(BufferManager, FixSingle) {
@@ -110,8 +110,7 @@ TEST(BufferManager, BufferFull) {
     pages.reserve(10);
 
     for (uint64_t i = 1; i < 11; ++i) {
-        auto fix = manager.fix(i);
-        pages.push_back(std::move(fix));
+        pages.push_back(manager.fix(i));
     }
 
     EXPECT_THROW(manager.fix(11), imlab::buffer_full_error);
@@ -148,7 +147,6 @@ TEST(BufferManager, LRURefresh) {
     EXPECT_TRUE(manager.get_fifo().empty());
     EXPECT_EQ((std::vector<uint64_t>{2, 1}), manager.get_lru());
 }
-
 // ---------------------------------------------------------------------------------------------------
 }  // namespace
 // ---------------------------------------------------------------------------------------------------

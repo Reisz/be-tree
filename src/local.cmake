@@ -13,8 +13,11 @@ set(SRC_CC_LINTER_IGNORE "")
 # Files
 # ---------------------------------------------------------------------------
 
-file(GLOB_RECURSE SRC_CC src/*.cc)
+file(GLOB_RECURSE SRC_CC src/*.cc src/*.tcc)
 set(SRC_CC ${SRC_CC})
+
+file(GLOB_RECURSE INCLUDE_TCC src/*.tcc)
+set(INCLUDE_TCC ${INCLUDE_TCC})
 
 # Gather lintable files
 set(SRC_CC_LINTING "")
@@ -30,6 +33,7 @@ endforeach()
 # ---------------------------------------------------------------------------
 
 add_library(imlab STATIC ${SRC_CC} ${INCLUDE_H})
+target_include_directories(imlab INTERFACE src)
 target_link_libraries(imlab gflags Threads::Threads)
 
 # ---------------------------------------------------------------------------

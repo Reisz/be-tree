@@ -23,6 +23,10 @@ make:
         - "clang-7"
         - "cmake"
         - "python3"
+    artifacts:
+        paths:
+            - build/tester
+        expire_in: 1 hrs
 
 tester:
     stage: test
@@ -37,6 +41,8 @@ tester:
         - "clang-7"
         - "cmake"
         - "python3"
+    dependencies:
+        - make
 
 cpplint:
     stage: test

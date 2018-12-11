@@ -17,8 +17,9 @@
 # KDevelop
 /*.kdev4
 
-# Clangd
+# ccls
 compile_commands.json
+.ccls-cache
 
 # Compiled Object files
 *.slo

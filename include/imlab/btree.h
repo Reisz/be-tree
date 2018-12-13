@@ -105,8 +105,8 @@ class BTree : Segment {
     // insert in a lock coupled manner, prevent cascadng splits by splitting
     // full nodes on the path in all cases
     void insert_lc_early_split(const Key &key, const T &value);
-    // TODO? bool try_insert_lc_no split(const Key &key, const T &value);
-    //       void insert_full_lock_rec_split(const Key &key, const T &value);
+    // TODO ? bool try_insert_lc_no split(const Key &key, const T &value);
+    //        void insert_full_lock_rec_split(const Key &key, const T &value);
 };
 
 }  // namespace imlab

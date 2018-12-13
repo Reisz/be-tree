@@ -1,8 +1,8 @@
 // ---------------------------------------------------------------------------------------------------
 // IMLAB
 // ---------------------------------------------------------------------------------------------------
-#ifndef INCLUDE_IMLAB_SEGMENT_FILE_H_
-#define INCLUDE_IMLAB_SEGMENT_FILE_H_
+#ifndef INCLUDE_IMLAB_SEGMENT_H_
+#define INCLUDE_IMLAB_SEGMENT_H_
 
 #include <cassert>
 #include "imlab/buffer_manager.h"
@@ -28,4 +28,4 @@ class Segment {
 
 }  // namespace imlab
 // ---------------------------------------------------------------------------------------------------
-#endif  // INCLUDE_IMLAB_SEGMENT_FILE_H_
+#endif  // INCLUDE_IMLAB_SEGMENT_H_

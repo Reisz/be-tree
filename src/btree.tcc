@@ -4,6 +4,7 @@
 #ifndef SRC_BTREE_TCC_
 #define SRC_BTREE_TCC_
 
+#include <vector>
 // ---------------------------------------------------------------------------------------------------
 namespace imlab {
 #define BTREE_TEMPL \
@@ -189,9 +190,7 @@ BTREE_TEMPL void BTREE_CLASS::insert(const Key &key, const T &value) {
                         inner.insert(pivot, prev);
                         fix.set_dirty();
                         break;
-                    } else {  // split node
-                        
-                    }
+                    } else {}  // split node
                 }
             }
         } else {  // inner node

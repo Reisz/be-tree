@@ -36,7 +36,7 @@ const std::byte *BufferFix::data() const {
 
 std::byte *BufferFixExclusive::data() {
     if (page)
-    return page->data.get();
+        return page->data.get();
     return nullptr;
 }
 

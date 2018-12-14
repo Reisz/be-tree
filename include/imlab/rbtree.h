@@ -53,11 +53,16 @@ class RBTree {
     };
 
     // representation of values in the tree, grow from the end of the data area
-    template<size_t I> struct RBValue {
+    template<size_t I> struct RBTag {
         const tag type = I;
+    };
+
+    template<size_t I> struct RBValue : RBTag<I> {
         element_t<I> value;
 
         explicit constexpr RBValue(const element_t<I> &value)
+            : value(value)  {}
+        explicit constexpr RBValue(element_t<I> &&value)
             : value(value)  {}
     };
 
@@ -66,7 +71,29 @@ class RBTree {
        static_assert(sizeof(*this) == page_size);
     }
 
-    template<size_t I> bool insert(const Key &key, const element_t<I> &value);
+    // three insert variants (void, copy, move)
+    template<size_t I> std::enable_if_t<std::is_same_v<void, element_t<I>>, bool> insert(const Key &key) {
+        auto result = insert<RBTag<I>>(key);
+        if (result)
+            new (&value_at<RBTag<I>>(result.value())) RBTag<I>();
+        return result.has_value();
+    }
+    template<size_t I> bool insert(const Key &key, const element_t<I> &value) {
+        auto result = insert<RBValue<I>>(key);
+        if (result)
+            new (&value_at<RBValue<I>>(result.value())) RBValue<I>(value);
+        return result.has_value();
+    }
+    template<size_t I> bool insert(const Key &key, element_t<I> &&value) {
+        auto result = insert<RBValue<I>>(key);
+        if (result)
+            new (&value_at<RBValue<I>>(result.value())) RBValue<I>(std::forward<element_t<I>>(value));
+        return result.has_value();
+    }
+
+
+    // testing interface, not linked in prod code
+    void check_rb_invariants();
 
  private:
     // For use in functions working with nodes
@@ -87,15 +114,16 @@ class RBTree {
         return ref(i + 1);
     }
 
-    template<size_t I> inline RBValue<I> &value_at(pointer i) {
-        return *(reinterpret_cast<RBValue<I>*>(data + i));
+    template<typename T> inline T &value_at(pointer i) {
+        return *(reinterpret_cast<T*>(data + i));
     }
-    template<size_t I> inline pointer reserve_value() {
-        pointer i = header.data_start - sizeof(RBValue<I>);
-        header.free_space -= sizeof(RBValue<I>);
+    template<typename Val> inline pointer reserve_value() {
+        pointer i = header.data_start - sizeof(Val);
+        header.free_space -= sizeof(Val);
         return header.data_start = i;
     }
 
+    template<typename T> std::optional<pointer> insert(const Key &key);
     void rotate(NodeRef node, typename RBNode::Child child);
 
     struct Header;

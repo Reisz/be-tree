@@ -12,13 +12,11 @@ namespace imlab {
     #define RBTREE_CLASS \
         RBTree<Key, page_size, Compare, Ts...>
 
-    RBTREE_TEMPL template<size_t I> bool RBTREE_CLASS::insert(const Key &key, const element_t<I> &value) {
-        if (sizeof(RBValue<I>) + sizeof(RBNode) > header.free_space)
-           return false;
+    RBTREE_TEMPL template<typename T> std::optional<typename RBTREE_CLASS::pointer> RBTREE_CLASS::insert(const Key &key) {
+        if (sizeof(T) + sizeof(RBNode) > header.free_space)
+           return {};
 
-
-        pointer i = reserve_value<I>();
-        new (&value_at<I>(i)) RBValue<I>(value);
+        pointer i = reserve_value<T>();
 
         // find parent
         NodeRef parent = ref(header.root_node);
@@ -93,7 +91,7 @@ namespace imlab {
             node->parent = 0;
         }
 
-        return true;
+        return i;
     }
 
     RBTREE_TEMPL void RBTREE_CLASS::rotate(NodeRef node, typename RBNode::Child child) {
@@ -103,7 +101,7 @@ namespace imlab {
         //     P            P
         //     |            |
         //    (R)          (L)
-        //    /(\)   ---> (/)\
+        //    / \\   ---> // \
         //   L   b        a   R
         //  / \     <---     / \
         // a   m            m   b
@@ -114,7 +112,11 @@ namespace imlab {
         } else {
             header.root_node = other;
         }
-        std::swap(other->children[child], node->children[-child]);
+
+        // replace other with child of other
+        node->children[-child] = other->children[child];
+        // replace child of other with node
+        other->children[child] = node;
 
         // fix parent pointers
         other->parent = parent;

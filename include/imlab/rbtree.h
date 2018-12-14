@@ -42,6 +42,8 @@ class RBTree {
             node_pointer children[2];
         };
         enum Child : uint8_t { Left, Right };
+        // assuming i->parent == *this
+        constexpr Child side(node_pointer i) { return left == i ? Left : Right; }
         friend constexpr Child operator-(const Child &c) { return typename RBNode::Child(1 - c); }
 
         enum Color : uint8_t { Red, Black } color = Red;
@@ -67,14 +69,24 @@ class RBTree {
     template<size_t I> bool insert(const Key &key, const element_t<I> &value);
 
  private:
-    inline RBNode &node_at(node_pointer i) {
-        return *(reinterpret_cast<RBNode*>(data) + (i - 1));
+    // For use in functions working with nodes
+    struct NodeRef {
+        node_pointer i;
+        RBNode *node;
+
+        operator node_pointer() { return i; }
+        RBNode *operator->() { return node; }
+        RBNode &operator*() { return *node; }
+    };
+    inline NodeRef ref(node_pointer i) {
+        return { i , i ? reinterpret_cast<RBNode*>(data) + (i - 1) : nullptr };
     }
-    inline node_pointer reserve_node() {
+    inline NodeRef reserve_node() {
         node_pointer i = header.node_count++;
         header.free_space -= sizeof(RBNode);
-        return i + 1;
+        return ref(i + 1);
     }
+
     template<size_t I> inline RBValue<I> &value_at(pointer i) {
         return *(reinterpret_cast<RBValue<I>*>(data + i));
     }
@@ -84,7 +96,7 @@ class RBTree {
         return header.data_start = i;
     }
 
-    void rotate(node_pointer node, typename RBNode::Child child);
+    void rotate(NodeRef node, typename RBNode::Child child);
 
     struct Header;
     static constexpr size_t kDataSize = page_size - sizeof(Header);

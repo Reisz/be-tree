@@ -4,6 +4,7 @@
 #ifndef SRC_RBTREE_TCC_
 #define SRC_RBTREE_TCC_
 
+#include <utility>
 // ---------------------------------------------------------------------------------------------------
 namespace imlab {
     #define RBTREE_TEMPL \
@@ -15,71 +16,62 @@ namespace imlab {
         if (sizeof(RBValue<I>) + sizeof(RBNode) > header.free_space)
            return false;
 
+
         pointer i = reserve_value<I>();
         new (&value_at<I>(i)) RBValue<I>(value);
 
-        if (header.node_count == 0) {
-            RBNode &node = node_at(header.root_node = reserve_node()) = RBNode(key, i, 0);
-            node.color = RBNode::Black;
-        } else {
-            node_pointer parent = header.root_node;
-            node_pointer *child_ptr;
-
-            // find correct place to add new node
+        // find parent
+        NodeRef parent = ref(header.root_node);
+        node_pointer *child_ptr;
+        if (parent) {
             do {
-                RBNode &node = node_at(parent);
-
-                if (comp(node.key, key)) {
-                    child_ptr = &node.right;
-                } else if (comp(key, node.key)) {
-                    child_ptr = &node.left;
+                if (comp(parent->key, key)) {
+                    child_ptr = &parent->right;
+                } else if (comp(key, parent->key)) {
+                    child_ptr = &parent->left;
                 } else {
-                    ;//throw;  // keys should never duplicate in the be-tree use-case
+                    throw;
                 }
 
                 if (*child_ptr)
-                    parent = *child_ptr;
+                    parent = ref(*child_ptr);
             } while (*child_ptr);
+        }
 
-            // add new node
-            node_pointer node = *child_ptr = reserve_node();
-            node_at(node) = RBNode(key, i, parent);
+        // add new node
+        NodeRef node = reserve_node();
+        *node = RBNode(key, i, parent);
 
-            node_pointer sibling, uncle, grandparent;
-            typename RBNode::Child child;
+        // https://de.wikipedia.org/wiki/Rot-Schwarz-Baum#Einf%C3%BCgen
+        if (parent) {
+            *child_ptr = node;
+            node->parent = parent;
 
             // fix rb invariants
-            // https://de.wikipedia.org/wiki/Rot-Schwarz-Baum#Einf%C3%BCgen
             do {
-                if (node == node_at(parent).left) {
-                    child = RBNode::Left;
-                    sibling = node_at(parent).right;
-                } else {
-                    child = RBNode::Right;
-                    sibling = node_at(parent).left;
-                }
+                typename RBNode::Child child = parent->side(node);
 
                 // case 1
-                if (node_at(parent).color == RBNode::Black)
+                if (parent->color == RBNode::Black)
                     break;
 
-                grandparent = node_at(parent).parent;
-                uncle = node_at(grandparent).children[-child];
+                NodeRef grandp = ref(parent->parent);
+                NodeRef uncle = ref(grandp->children[-child]);
 
                 // case 2
-                if (uncle && node_at(uncle).color == RBNode::Red) {
-                    node_at(parent).color = RBNode::Black;
-                    node_at(uncle).color = RBNode::Black;
-                    node_at(grandparent).color = RBNode::Red;
+                if (uncle && uncle->color == RBNode::Red) {
+                    parent->color = RBNode::Black;
+                    uncle->color = RBNode::Black;
+                    grandp->color = RBNode::Red;
 
-                    node = grandparent;
-                    parent = node_at(node).parent;
+                    node = grandp;
+                    parent = ref(node->parent);
 
                     continue;
                 }
 
                 // case 3
-                if (parent == node_at(grandparent).children[-child]) {
+                if (parent == grandp->children[-child]) {
                     rotate(parent, -child);
 
                     uncle = node;
@@ -88,24 +80,25 @@ namespace imlab {
                 }
 
                 // case 4
-                rotate(grandparent, -child);
-                node_at(parent).color = RBNode::Black;
-                node_at(grandparent).color = RBNode::Red;
+                rotate(grandp, -child);
+                parent->color = RBNode::Black;
+                grandp->color = RBNode::Red;
                 break;
-            } while ((parent = node_at(node).parent));
+            } while ((parent = ref(node->parent)));
+        }
 
-            if (!parent) {
-                header.root_node = node;
-                node_at(node).color = RBNode::Black;
-            }
+        if (!parent) {
+            header.root_node = node;
+            node->color = RBNode::Black;
+            node->parent = 0;
         }
 
         return true;
     }
 
-    RBTREE_TEMPL void RBTREE_CLASS::rotate(node_pointer node, typename RBNode::Child child) {
-        node_pointer parent = node_at(node).parent;
-        node_pointer other = node_at(node).children[-child];
+    RBTREE_TEMPL void RBTREE_CLASS::rotate(NodeRef node, typename RBNode::Child child) {
+        NodeRef parent = ref(node->parent);
+        NodeRef other = ref(node->children[-child]);
 
         //     P            P
         //     |            |
@@ -117,20 +110,19 @@ namespace imlab {
 
         // adapt child pointers
         if (parent) {
-            node_pointer *parent_side = &(node == node_at(parent).left ? node_at(parent).left : node_at(parent).right);
-            *parent_side = other;
+            parent->children[parent->side(node)] = other;
         } else {
             header.root_node = other;
         }
-        std::swap(node_at(other).children[child], node_at(node).children[-child]);
+        std::swap(other->children[child], node->children[-child]);
 
         // fix parent pointers
-        node_at(other).parent = parent;
-        node_at(node).parent = other;
+        other->parent = parent;
+        node->parent = other;
 
-        node_pointer m = node_at(node).children[-child];
+        NodeRef m = ref(node->children[-child]);
         if (m)
-            node_at(m).parent = node;
+            m->parent = node;
     }
 
 }  // namespace imlab

@@ -26,6 +26,11 @@ TEST(RBTree, Sizes) {
     ASSERT_EQ(sizeof(RBTreeTest<(1ull << 32) - 4>), (1ull << 32) - 4);
     ASSERT_EQ(sizeof(RBTreeTest<1ull << 32>), 1ull << 32);
 }
+
+TEST(RBTree, SimpleInsertion) {
+    RBTreeTest<255> tree;
+    tree.insert<0>({0, 0}, {0});
+}
 // ---------------------------------------------------------------------------------------------------
 }  // namespace
 // ---------------------------------------------------------------------------------------------------

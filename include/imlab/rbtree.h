@@ -32,8 +32,18 @@ class RBTree {
     // an inner node in the rb-tree, doubles as slot entry for values
     struct RBNode {
         Key key;
-        node_pointer left = 0, right = 0, parent;
         pointer value;
+        node_pointer parent;
+
+        union {
+            struct {
+                node_pointer left = 0, right = 0;
+            };
+            node_pointer children[2];
+        };
+        enum Child : uint8_t { Left, Right };
+        friend constexpr Child operator-(const Child &c) { return typename RBNode::Child(1 - c); }
+
         enum Color : uint8_t { Red, Black } color = Red;
 
         constexpr RBNode(const Key &key, pointer value, node_pointer parent)
@@ -74,8 +84,12 @@ class RBTree {
         return header.data_start = i;
     }
 
+    void rotate(node_pointer node, typename RBNode::Child child);
+
     struct Header;
     static constexpr size_t kDataSize = page_size - sizeof(Header);
+
+    static constexpr Compare comp{};
 
     struct Header {
         node_pointer root_node = 0, node_count = 0;

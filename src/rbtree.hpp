@@ -55,7 +55,7 @@ namespace imlab {
                     break;
 
                 NodeRef grandp = ref(parent->parent);
-                NodeRef uncle = ref(grandp->children[-child]);
+                NodeRef uncle = ref(grandp->children[-grandp->side(parent)]);
 
                 // case 2
                 if (uncle && uncle->color == RBNode::Red) {
@@ -64,8 +64,6 @@ namespace imlab {
                     grandp->color = RBNode::Red;
 
                     node = grandp;
-                    parent = ref(node->parent);
-
                     continue;
                 }
 
@@ -82,14 +80,12 @@ namespace imlab {
                 rotate(grandp, -child);
                 parent->color = RBNode::Black;
                 grandp->color = RBNode::Red;
-                break;
             } while ((parent = ref(node->parent)));
         }
 
         if (!parent) {
             header.root_node = node;
             node->color = RBNode::Black;
-            node->parent = 0;
         }
 
         return i;

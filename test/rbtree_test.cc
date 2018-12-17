@@ -85,6 +85,23 @@ TEST(RBTree, LinearInsertion) {
     while (tree.insert<2>({i++, 0}))
         tree.check_rb_invariants();
 }
+
+TEST(RBTree, LinearReverseInsertion) {
+    RBTreeTest<255> tree;
+
+    uint32_t i = std::numeric_limits<uint32_t>::max();
+    while (tree.insert<2>({i--, 0}))
+        tree.check_rb_invariants();
+}
+
+TEST(RBTree, SwitchingInsertion) {
+    RBTreeTest<255> tree;
+
+    uint32_t i = 0;
+    uint32_t k = 0;
+    while (tree.insert<2>({i++, k ^= 1}))
+        tree.check_rb_invariants();
+}
 // ---------------------------------------------------------------------------------------------------
 }  // namespace
 // ---------------------------------------------------------------------------------------------------

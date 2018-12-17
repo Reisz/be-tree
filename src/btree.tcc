@@ -19,7 +19,7 @@ BTREE_TEMPL std::optional<uint32_t> BTREE_CLASS::InnerNode::lower_bound(const Ke
 
     // TODO binary search
     for (uint32_t i = 0; i < this->count; ++i) {
-        if (!Compare(keys[i], key))
+        if (!comp(keys[i], key))
             return i;
     }
 
@@ -30,7 +30,7 @@ BTREE_TEMPL void BTREE_CLASS::InnerNode::insert(const Key &key, uint64_t split_p
     uint32_t i = 0;
     // TODO binary search
     for (; i < this->count; ++i) {
-        if (Compare(keys[i], key)) {
+        if (comp(keys[i], key)) {
             break;
         }
     }
@@ -68,7 +68,7 @@ BTREE_TEMPL Key BTREE_CLASS::InnerNode::split(InnerNode &other) {
 BTREE_TEMPL std::optional<uint32_t> BTREE_CLASS::LeafNode::find_index(const Key &key) const {
     // TODO binary search
     for (uint32_t i = 0; i < this->count; ++i) {
-        if (!Compare(keys[i], key) && !Compare(key, keys[i]))
+        if (!comp(keys[i], key) && !comp(key, keys[i]))
             return i;
     }
 
@@ -79,15 +79,15 @@ BTREE_TEMPL void BTREE_CLASS::LeafNode::insert(const Key &key, const T &value) {
     uint32_t i = 0;
     // TODO binary search
     for (; i < this->count; ++i) {
-        if (Compare(keys[i], key)) {
+        if (comp(keys[i], key)) {
             break;
         }
     }
 
     // move to the right
-    for (uint32_t j = this->count - 1; j >= i; --j) {
-        keys[j + 1] = keys[j];
-        values[j + 1] = values[j];
+    for (uint32_t j = this->count; j > i; --j) {
+        keys[j] = keys[j - 1];
+        values[j] = values[j - 1];
     }
 
     // insert
@@ -129,27 +129,27 @@ BTREE_TEMPL Key BTREE_CLASS::LeafNode::split(LeafNode &other, uint64_t other_pag
     return other.keys[0];
 }
 // ---------------------------------------------------------------------------------------------------
-BTREE_TEMPL std::optional<const T&> BTREE_CLASS::find(const Key &key) const {
+BTREE_TEMPL const T *BTREE_CLASS::find(const Key &key) const {
     if (!root)
-        return {};
+        return nullptr;
 
-    uint64_t current = root;
+    uint64_t current = root.value();
     BufferFix prev_fix, fix = manager.fix(segment_page_id(root.value()));
-    while (!reinterpret_cast<Node *>(fix.data())->is_leaf()) {
+    while (!reinterpret_cast<const Node *>(fix.data())->is_leaf()) {
         const InnerNode &inner = *reinterpret_cast<const InnerNode*>(fix.data());
         auto lb = inner.lower_bound(key);
-        current = lb ? inner.children[lb] : inner.children[inner.count];
+        current = lb ? inner.children[lb.value()] : inner.children[inner.count];
 
-        prev_fix = fix;
+        prev_fix = std::move(fix);
         fix = manager.fix(segment_page_id(current));
     }
 
-    const LeafNode &leaf = *reinterpret_cast<LeafNode*>(fix.data());
-    auto idx = leaf.find(key);
+    const LeafNode &leaf = *reinterpret_cast<const LeafNode*>(fix.data());
+    auto idx = leaf.find_index(key);
 
     if (idx)
-        return leaf.values[idx];
-    return {};
+        return &leaf.values[idx.value()];
+    return nullptr;
 }
 
 BTREE_TEMPL void BTREE_CLASS::insert(const Key &key, const T &value) {
@@ -157,7 +157,10 @@ BTREE_TEMPL void BTREE_CLASS::insert(const Key &key, const T &value) {
         root = next_page_id++;
 
         auto root_fix = manager.fix_exclusive(segment_page_id(root.value()));
-        new (root_fix.data()) LeafNode();
+        LeafNode *leaf = new (root_fix.data()) LeafNode();
+
+        leaf->insert(key, value);
+
         root_fix.set_dirty();
         ++leaf_count;
     } else {
@@ -171,19 +174,50 @@ BTREE_TEMPL void BTREE_CLASS::insert(const Key &key, const T &value) {
     ++count;
 }
 
+BTREE_TEMPL bool BTREE_CLASS::insert_lc_early_split(const Key &key, const T &value) {
+    uint64_t current = root.value();
+    BufferFixExclusive prev_fix;
+
+    while (true) {
+        auto fix = manager.fix_exclusive(segment_page_id(current));
+
+        if (reinterpret_cast<Node*>(fix.data())->is_leaf()) {
+            LeafNode &leaf = *reinterpret_cast<LeafNode*>(fix.data());
+
+            if (leaf.count < LeafNode::kCapacity) {
+                leaf.insert(key, value);
+                fix.set_dirty();
+                return false;
+            } else {
+                // TODO split
+            }
+        } else {
+            InnerNode &inner = *reinterpret_cast<InnerNode*>(fix.data());
+
+            BufferFixExclusive split;
+            if (inner.count == InnerNode::kCapacity) {
+                // TODO split
+
+                fix.set_dirty();
+                split.set_dirty();
+            }
+        }
+    }
+}
+
 BTREE_TEMPL bool BTREE_CLASS::try_insert_lc_no_split(const Key &key, const T &value) {
-    uint64_t current = root;
+    uint64_t current = root.value();
     BufferFixExclusive prev_fix;  // keep parent page locked
 
     // tree traversal loop
     while (true) {
         auto fix = manager.fix_exclusive(segment_page_id(current));
 
-        if (reinterpret_cast<Node*>(fix.data()).is_leaf()) {
+        if (reinterpret_cast<Node*>(fix.data())->is_leaf()) {
             LeafNode &leaf = *reinterpret_cast<LeafNode*>(fix.data());
 
-            if (leaf->count < LeafNode::kCapacity) {
-                leaf->insert(key, value);
+            if (leaf.count < LeafNode::kCapacity) {
+                leaf.insert(key, value);
                 fix.set_dirty();
                 return true;
             }
@@ -193,12 +227,17 @@ BTREE_TEMPL bool BTREE_CLASS::try_insert_lc_no_split(const Key &key, const T &va
             InnerNode &inner = *reinterpret_cast<InnerNode*>(fix.data());
             auto lb = inner.lower_bound(key);
 
-            current = lb ? inner.children[lb] : inner.children[inner.count];
+            current = lb ? inner.children[lb.value()] : inner.children[inner.count];
 
-            prev_fix = fix;
+            prev_fix = std::move(fix);
             continue;
         }
     }
+}
+
+
+BTREE_TEMPL bool BTREE_CLASS::insert_full_lock_rec_split(const Key &key, const T &value) {
+    return false;  // TODO
 }
 
 BTREE_TEMPL void BTREE_CLASS::erase(const Key &key) {

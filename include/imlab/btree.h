@@ -28,6 +28,10 @@ class BTree : Segment {
     struct Node {
         uint16_t level;
         uint16_t count;
+
+        Node(uint16_t l, uint16_t c)
+            : level(l), count(c) {}
+
         inline bool is_leaf() const {
             return level == 0;
         }
@@ -83,7 +87,7 @@ class BTree : Segment {
     BTree(uint16_t segment_id, BufferManager &manager)
         : Segment(segment_id, manager) {}
 
-    std::optional<const T&> find(const Key &key) const;
+    const T *find(const Key &key) const;
     // TODO range_query
 
     void insert(const Key &key, const T &value);
@@ -97,6 +101,8 @@ class BTree : Segment {
     uint64_t capacity() const { return leaf_count * LeafNode::kCapacity; }
 
  private:
+    static constexpr Compare comp{};
+
     std::optional<uint64_t> root;
     uint64_t next_page_id = 0;
 

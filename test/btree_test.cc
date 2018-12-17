@@ -10,6 +10,14 @@ namespace {
 TEST(BTree, InsertEmptyTree) {
     imlab::BufferManager buffer_manager(1024, 100);
     imlab::BTree<uint64_t, uint64_t, 1024> tree(0, buffer_manager);
+
+    tree.insert(12, 34);
+
+    EXPECT_EQ(1, tree.size());
+
+    auto *v = tree.find(12);
+    ASSERT_TRUE(v);
+    ASSERT_EQ(34, *tree.find(12));
 }
 // ---------------------------------------------------------------------------------------------------
 }  // namespace

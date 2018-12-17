@@ -4,6 +4,7 @@
 #ifndef SRC_BTREE_TCC_
 #define SRC_BTREE_TCC_
 
+#include "imlab/btree.h"
 #include <vector>
 // ---------------------------------------------------------------------------------------------------
 namespace imlab {

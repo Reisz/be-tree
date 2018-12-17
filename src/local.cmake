@@ -13,10 +13,10 @@ set(SRC_CC_LINTER_IGNORE "")
 # Files
 # ---------------------------------------------------------------------------
 
-file(GLOB_RECURSE SRC_CC src/*.cc src/*.tcc)
+file(GLOB_RECURSE SRC_CC src/*.cc src/*.hpp)
 set(SRC_CC ${SRC_CC})
 
-file(GLOB_RECURSE INCLUDE_TCC src/*.tcc)
+file(GLOB_RECURSE INCLUDE_TCC src/*.hpp)
 set(INCLUDE_TCC ${INCLUDE_TCC})
 
 # Gather lintable files

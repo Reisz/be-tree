@@ -4,6 +4,7 @@
 #ifndef SRC_RBTREE_TCC_
 #define SRC_RBTREE_TCC_
 
+#include "imlab/rbtree.h"
 #include <utility>
 // ---------------------------------------------------------------------------------------------------
 namespace imlab {

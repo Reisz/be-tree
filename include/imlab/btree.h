@@ -7,6 +7,7 @@
 #include <functional>
 #include <utility>
 #include <vector>
+#include <string>
 #include "imlab/segment.h"
 // ---------------------------------------------------------------------------------------------------
 namespace imlab {
@@ -61,7 +62,7 @@ class BTree : Segment {
         LeafNode() : Node(0, 0) {}
 
         // returns first index where keys[i] >= key
-        uint32_t lower_bound(const Key &key) const;
+        std::optional<uint32_t> find_index(const Key &key) const;
 
         // insert a new value, leaf can not be full
         void insert(const Key &key, const T &value);
@@ -89,24 +90,29 @@ class BTree : Segment {
     void update(const Key &key, const T &value);
     void erase(const Key &key);
 
-    uint64_t root_id() const;
-    void load(uint64_t root_id);
+    std::string serialize() const;
+    BTree deserialize(const std::string &s);
 
     uint64_t size() const { return count; }
-    uint64_t capacity() const { return leaf_space; }
+    uint64_t capacity() const { return leaf_count * LeafNode::kCapacity; }
 
  private:
     std::optional<uint64_t> root;
     uint64_t next_page_id = 0;
 
     uint64_t count = 0;
-    uint64_t leaf_space = 0;
+    uint64_t leaf_count = 0;
 
+    bool should_early_split() { return true; }  // TODO
     // insert in a lock coupled manner, prevent cascadng splits by splitting
     // full nodes on the path in all cases
-    void insert_lc_early_split(const Key &key, const T &value);
-    // TODO ? bool try_insert_lc_no split(const Key &key, const T &value);
-    //        void insert_full_lock_rec_split(const Key &key, const T &value);
+    // returns true if new leaf node created
+    bool insert_lc_early_split(const Key &key, const T &value);
+    // try inserting in the tree without splitting, returns true on success
+    bool try_insert_lc_no_split(const Key &key, const T &value);
+    // lock the entire path down the tree to be able to split as needed
+    // return true if new leaft node created
+    bool insert_full_lock_rec_split(const Key &key, const T &value);
 };
 
 }  // namespace imlab

@@ -129,11 +129,27 @@ BTREE_TEMPL Key BTREE_CLASS::LeafNode::split(LeafNode &other, uint64_t other_pag
     return other.keys[0];
 }
 // ---------------------------------------------------------------------------------------------------
-BTREE_TEMPL std::optional<T&> BTREE_CLASS::find(const Key &key) {
+BTREE_TEMPL std::optional<const T&> BTREE_CLASS::find(const Key &key) const {
     if (!root)
         return {};
 
-    return {};  // TODO
+    uint64_t current = root;
+    BufferFix prev_fix, fix = manager.fix(segment_page_id(root.value()));
+    while (!reinterpret_cast<Node *>(fix.data())->is_leaf()) {
+        const InnerNode &inner = *reinterpret_cast<const InnerNode*>(fix.data());
+        auto lb = inner.lower_bound(key);
+        current = lb ? inner.children[lb] : inner.children[inner.count];
+
+        prev_fix = fix;
+        fix = manager.fix(segment_page_id(current));
+    }
+
+    const LeafNode &leaf = *reinterpret_cast<LeafNode*>(fix.data());
+    auto idx = leaf.find(key);
+
+    if (idx)
+        return leaf.values[idx];
+    return {};
 }
 
 BTREE_TEMPL void BTREE_CLASS::insert(const Key &key, const T &value) {
@@ -143,14 +159,25 @@ BTREE_TEMPL void BTREE_CLASS::insert(const Key &key, const T &value) {
         auto root_fix = manager.fix_exclusive(segment_page_id(root.value()));
         new (root_fix.data()) LeafNode();
         root_fix.set_dirty();
+        ++leaf_count;
+    } else {
+        if (should_early_split()) {
+            leaf_count += insert_lc_early_split(key, value);
+        } else if (!try_insert_lc_no_split(key, value)) {
+            leaf_count += insert_full_lock_rec_split(key, value);
+        }
     }
 
-    std::vector<uint64_t> path = {root};
+    ++count;
+}
+
+BTREE_TEMPL bool BTREE_CLASS::try_insert_lc_no_split(const Key &key, const T &value) {
+    uint64_t current = root;
     BufferFixExclusive prev_fix;  // keep parent page locked
 
     // tree traversal loop
     while (true) {
-        auto fix = manager.fix_exclusive(segment_page_id(path.back()));
+        auto fix = manager.fix_exclusive(segment_page_id(current));
 
         if (reinterpret_cast<Node*>(fix.data()).is_leaf()) {
             LeafNode &leaf = *reinterpret_cast<LeafNode*>(fix.data());
@@ -158,50 +185,15 @@ BTREE_TEMPL void BTREE_CLASS::insert(const Key &key, const T &value) {
             if (leaf->count < LeafNode::kCapacity) {
                 leaf->insert(key, value);
                 fix.set_dirty();
-                break;
-            } else {  // split node
-                Key pivot;
-
-                {   // create new leaf to split into
-                    uint64_t new_leaf = next_page_id++;
-                    auto other_fix = manager.fix_exclusive(segment_page_id(new_leaf));
-                    LeafNode &other = *(new (other_fix.data()) LeafNode());
-
-                    pivot = leaf->split(other);
-                    if (Compare(key, pivot)) {  // insert into old node
-                        leaf->insert(key, value);
-                    } else {  // insert into new node
-                        other->insert(key, value);
-                    }
-
-                    fix.set_dirty();
-                    other_fix.set_dirty();
-                }
-
-                uint64_t prev = path.pop_back();  // remove leaf from path
-                while (!path.empty()) {  // go back up until
-                    // update fixes for going upward
-                    fix = prev_fix;
-                    if (path.size() > 1)
-                        prev_fix = path[path.size() - 2];
-
-                    InnerNode &inner = *reinterpret_cast<InnerNode*>(fix.data());
-                    if (innert->count < InnerNode::kCapacity) {
-                        inner.insert(pivot, prev);
-                        fix.set_dirty();
-                        break;
-                    } else {}  // split node
-                }
+                return true;
             }
+
+            return false;
         } else {  // inner node
-            InnerNode *inner = reinterpret_cast<InnerNode*>(fix.data());
-            auto next = inner->lower_bound(key);
+            InnerNode &inner = *reinterpret_cast<InnerNode*>(fix.data());
+            auto lb = inner.lower_bound(key);
 
-            if (next) {
-                path.push_back(next);
-            } else {  // greater than all pivot keys
-                path.push_back(inner->children[inner->count]);
-            }
+            current = lb ? inner.children[lb] : inner.children[inner.count];
 
             prev_fix = fix;
             continue;

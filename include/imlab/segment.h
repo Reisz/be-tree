@@ -14,7 +14,7 @@ class Segment {
     constexpr Segment(uint16_t segment_id, BufferManager &manager)
         : segment_id_mask(((uint64_t) segment_id) << 48), manager(manager) {}
 
-    uint64_t segment_page_id(uint64_t id) {
+    uint64_t segment_page_id(uint64_t id) const {
         assert((id & ((1ull << 16) - 1) << 48) == 0);
         return segment_id_mask | id;
     }

@@ -28,6 +28,10 @@ class RBTree {
     using tag = uint_fit_t<sizeof...(Ts)>;
     // get element type by index
     template <size_t I> using element_t = typename std::tuple_element<I, std::tuple<Ts...>>::type;
+    // bookkeeping header for the tree, subratct from final data size
+    struct Header;
+    static constexpr size_t kDataSize = page_size - sizeof(Header);
+
 
     // an inner node in the rb-tree, doubles as slot entry for values
     struct RBNode {
@@ -43,14 +47,20 @@ class RBTree {
         };
         enum Child : uint8_t { Left, Right };
         // assuming i->parent == *this
-        constexpr Child side(node_pointer i) { return left == i ? Left : Right; }
-        friend constexpr Child operator-(const Child &c) { return typename RBNode::Child(1 - c); }
+        constexpr Child side(node_pointer i) const {
+            return left == i ? Left : Right;
+        }
+
+        friend constexpr Child operator-(const Child &c) {
+            return typename RBNode::Child(1 - c);
+        }
 
         enum Color : uint8_t { Red, Black } color = Red;
 
         constexpr RBNode(const Key &key, pointer value, node_pointer parent)
             : key(key), value(value), parent(parent) {}
     };
+
 
     // representation of values in the tree, grow from the end of the data area
     template<size_t I> struct RBTag {
@@ -65,6 +75,7 @@ class RBTree {
         explicit constexpr RBValue(element_t<I> &&value)
             : value(value)  {}
     };
+
 
  public:
     constexpr RBTree() {
@@ -108,9 +119,13 @@ class RBTree {
     inline NodeRef ref(node_pointer i) {
         return { i , i ? reinterpret_cast<RBNode*>(data) + (i - 1) : nullptr };
     }
-    inline NodeRef reserve_node() {
+    template<typename... Args> inline NodeRef emplace_node(Args &&...a) {
         node_pointer i = header.node_count++;
         header.free_space -= sizeof(RBNode);
+
+        NodeRef result = ref(i + 1);
+        new (result.node) RBNode(a...);
+
         return ref(i + 1);
     }
 
@@ -123,19 +138,17 @@ class RBTree {
         return header.data_start = i;
     }
 
+    // helper functions
     template<typename T> std::optional<pointer> insert(const Key &key);
     void rotate(NodeRef node, typename RBNode::Child child);
 
-    struct Header;
-    static constexpr size_t kDataSize = page_size - sizeof(Header);
-
     static constexpr Compare comp{};
 
+    // member variables
     struct Header {
         node_pointer root_node = 0, node_count = 0;
         pointer data_start = kDataSize, free_space = kDataSize;
     } header;
-
     std::byte data[kDataSize];
 };
 

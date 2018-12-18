@@ -13,76 +13,77 @@ namespace imlab {
     #define RBTREE_CLASS \
         RBTree<Key, page_size, Compare, Ts...>
 
-    RBTREE_TEMPL template<typename T> std::optional<typename RBTREE_CLASS::pointer> RBTREE_CLASS::insert(const Key &key) {
+    RBTREE_TEMPL template<typename T> std::optional<typename RBTREE_CLASS::pointer>
+    RBTREE_CLASS::insert(const Key &key) {
         if (sizeof(T) + sizeof(RBNode) > header.free_space)
            return {};
 
-        pointer i = reserve_value<T>();
-
         // find parent
         NodeRef parent = ref(header.root_node);
-        node_pointer *child_ptr;
+        typename RBNode::Child child;
         if (parent) {
-            do {
+            while (true) {
                 if (comp(parent->key, key)) {
-                    child_ptr = &parent->right;
+                    child = RBNode::Right;
                 } else if (comp(key, parent->key)) {
-                    child_ptr = &parent->left;
+                    child = RBNode::Left;
                 } else {
-                    throw;
+                    throw;  // be-tree should never duplicate keys
                 }
 
-                if (*child_ptr)
-                    parent = ref(*child_ptr);
-            } while (*child_ptr);
+                // found insert spot
+                if (!parent->children[child])
+                    break;
+
+                parent = ref(parent->children[child]);
+            }
         }
 
         // add new node
-        NodeRef node = reserve_node();
-        *node = RBNode(key, i, parent);
+        pointer i = reserve_value<T>();
+        NodeRef node = emplace_node(key, i, parent);
 
         // https://de.wikipedia.org/wiki/Rot-Schwarz-Baum#Einf%C3%BCgen
         if (parent) {
-            *child_ptr = node;
-            node->parent = parent;
+            parent->children[child] = node;
 
             // fix rb invariants
             do {
-                typename RBNode::Child child = parent->side(node);
+                child = parent->side(node);
 
-                // case 1
+                // case 1: parent is black -> done
                 if (parent->color == RBNode::Black)
                     break;
 
                 NodeRef grandp = ref(parent->parent);
                 NodeRef uncle = ref(grandp->children[-grandp->side(parent)]);
 
-                // case 2
+                // case 2: parent & uncle are red
                 if (uncle && uncle->color == RBNode::Red) {
-                    parent->color = RBNode::Black;
-                    uncle->color = RBNode::Black;
-                    grandp->color = RBNode::Red;
+                    // make them black instead and continue with grandparent
+                    parent->color = uncle->color = RBNode::Black;
 
+                    grandp->color = RBNode::Red;
                     node = grandp;
                     continue;
                 }
 
-                // case 3
+                // case 3: no / black uncle & zigzag from grandparent to node
                 if (parent == grandp->children[-child]) {
+                    // fix zigzag -> now in case 4
                     rotate(parent, -child);
-
-                    uncle = node;
-                    node = parent;
-                    parent = uncle;
+                    std::swap(node, parent);
                 }
 
-                // case 4
+                // case 4: no / black uncle & stright line from grandparent to node
+                // rotate around grandparent to balance out
                 rotate(grandp, -child);
                 parent->color = RBNode::Black;
                 grandp->color = RBNode::Red;
             } while ((parent = ref(node->parent)));
         }
 
+        // iteration ended with new root node (or no iteration happened)
         if (!parent) {
             header.root_node = node;
             node->color = RBNode::Black;
@@ -94,6 +95,7 @@ namespace imlab {
     RBTREE_TEMPL void RBTREE_CLASS::rotate(NodeRef node, typename RBNode::Child child) {
         NodeRef parent = ref(node->parent);
         NodeRef other = ref(node->children[-child]);
+        NodeRef m = ref(other->children[child]);
 
         //     P            P
         //     |            |
@@ -110,16 +112,14 @@ namespace imlab {
             header.root_node = other;
         }
 
-        // replace other with child of other
-        node->children[-child] = other->children[child];
-        // replace child of other with node
+        // replace other with m in node
+        node->children[-child] = m;
+        // replace m with node in other
         other->children[child] = node;
 
         // fix parent pointers
         other->parent = parent;
         node->parent = other;
-
-        NodeRef m = ref(node->children[-child]);
         if (m)
             m->parent = node;
     }

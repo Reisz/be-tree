@@ -1,8 +1,8 @@
 // ---------------------------------------------------------------------------------------------------
 // IMLAB
 // ---------------------------------------------------------------------------------------------------
-#ifndef SRC_RBTREE_TCC_
-#define SRC_RBTREE_TCC_
+#ifndef SRC_RBTREE_HPP_
+#define SRC_RBTREE_HPP_
 
 #include "imlab/rbtree.h"
 #include <utility>
@@ -126,4 +126,4 @@ namespace imlab {
 
 }  // namespace imlab
 // ---------------------------------------------------------------------------------------------------
-#endif  // SRC_RBTREE_TCC_
+#endif  // SRC_RBTREE_HPP_

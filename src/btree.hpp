@@ -1,8 +1,8 @@
 // ---------------------------------------------------------------------------------------------------
 // IMLAB
 // ---------------------------------------------------------------------------------------------------
-#ifndef SRC_BTREE_TCC_
-#define SRC_BTREE_TCC_
+#ifndef SRC_BTREE_HPP_
+#define SRC_BTREE_HPP_
 
 #include "imlab/btree.h"
 #include <vector>
@@ -247,4 +247,4 @@ BTREE_TEMPL void BTREE_CLASS::erase(const Key &key) {
 
 }  // namespace imlab
 // ---------------------------------------------------------------------------------------------------
-#endif  // SRC_BTREE_TCC_
+#endif  // SRC_BTREE_HPP_

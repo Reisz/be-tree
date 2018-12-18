@@ -43,8 +43,8 @@ function(add_cpplint_target TARGET INPUT)
                 ${PYTHON_EXECUTABLE}
                 ${CPPLINT_SCRIPT_PATH}
                 "--counting=detailed"
-                "--extensions=cc,h,tcc"
-                "--headers=h,tcc"
+                "--extensions=cc,h,hpp"
+                "--headers=h,hpp"
                 "--linelength=200"
                 "--filter=-legal/copyright,-runtime/references,-readability/todo,-build/c++11,-build/c++14"
                 ${INPUT}

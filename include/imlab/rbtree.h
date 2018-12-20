@@ -77,10 +77,53 @@ class RBTree {
     };
 
 
+    class reference {
+     public:
+        tag type() const;
+        template<size_t I> element_t<I> as();
+
+     private:
+        reference(const RBTree &tree, pointer i)
+            : tree(tree), i(i) {}
+
+        const RBTree &tree;
+        pointer i;
+    };
+
+
+    class iterator {
+     public:
+        iterator &operator++();
+        iterator operator++(int);
+        iterator &operator--();
+        iterator operator--(int);
+        bool operator==(const iterator &other) const;
+        bool operator!=(const iterator &other) const;
+        reference operator*() const;
+
+     private:
+        iterator(const RBTree &tree, node_pointer i)
+            : tree(tree), i(i) {}
+
+        const RBTree &tree;
+        node_pointer i;
+    };
+
+
  public:
     constexpr RBTree() {
        static_assert(sizeof(*this) == page_size);
     }
+
+    iterator begin();
+    iterator end();
+
+    iterator lower_bound(const Key &key);
+    iterator upper_bound(const Key &key);
+    iterator find(const Key &key);
+
+    void erase(iterator pos);
+    void erase(iterator start, iterator end);
 
     // three insert variants (void, copy, move)
     template<size_t I> std::enable_if_t<std::is_same_v<void, element_t<I>>, bool> insert(const Key &key) {

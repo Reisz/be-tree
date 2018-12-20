@@ -63,6 +63,7 @@ BTREE_TEMPL Key BTREE_CLASS::InnerNode::split(InnerNode &other) {
     other.count = this->count - start;
     this->count = start;
 
+    other.level = this->level;
     return other.keys[0];
 }
 // ---------------------------------------------------------------------------------------------------
@@ -179,6 +180,21 @@ BTREE_TEMPL bool BTREE_CLASS::insert_lc_early_split(const Key &key, const T &val
     uint64_t current = root.value();
     BufferFixExclusive prev_fix;
 
+    auto parent_add_split = [this, &current, &prev_fix](const Key &key, uint64_t page) {
+        InnerNode *parent;
+        if (current == root.value()) {
+            uint64_t id = next_page_id++;
+            prev_fix = manager.fix_exclusive(segment_page_id(id));
+            parent = new (prev_fix.data()) InnerNode();
+            root = id;
+            prev_fix.set_dirty();
+        } else {
+            parent = reinterpret_cast<InnerNode*>(prev_fix.data());
+        }
+
+        parent->insert(key, page);
+    };
+
     while (true) {
         auto fix = manager.fix_exclusive(segment_page_id(current));
 
@@ -190,18 +206,40 @@ BTREE_TEMPL bool BTREE_CLASS::insert_lc_early_split(const Key &key, const T &val
                 fix.set_dirty();
                 return false;
             } else {
+                uint64_t id = next_page_id++;
+                auto split = manager.fix_exclusive(segment_page_id(id));
+                LeafNode &other = *(new (split.data()) LeafNode());
+
                 // TODO split
+
+                return true;
             }
         } else {
-            InnerNode &inner = *reinterpret_cast<InnerNode*>(fix.data());
+            InnerNode *inner = reinterpret_cast<InnerNode*>(fix.data());
 
-            BufferFixExclusive split;
-            if (inner.count == InnerNode::kCapacity) {
-                // TODO split
+            if (inner->count == InnerNode::kCapacity) {
+                uint64_t id = next_page_id++;
+                auto split = manager.fix_exclusive(segment_page_id(id));
+                InnerNode &other = *(new (split.data()) InnerNode());
+
+                auto skey = inner->split(other);
+                parent_add_split(skey, id);
 
                 fix.set_dirty();
                 split.set_dirty();
+                prev_fix.set_dirty();
+
+                if (!comp(key, skey)) {
+                    fix = std::move(split);
+                    inner = &other;
+                }
             }
+
+            auto lb = inner->lower_bound(key);
+            current = lb ? inner->children[lb.value()] : inner->children[inner->count];
+
+            prev_fix = std::move(fix);
+            continue;
         }
     }
 }

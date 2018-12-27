@@ -14,91 +14,44 @@ namespace imlab {
 
 class BufferManager;
 
-template<size_t actual, size_t expected, uint32_t count> struct check_size {
-    static_assert(count > 1);
-    static_assert(actual <= expected);
-    static_assert(actual + 8 >= expected);
-};
+#define IMLAB_BTREE_TEMPL \
+    template<typename Key, typename T, size_t page_size, typename Compare = std::less<Key>>
+#define IMLAB_BTREE_CLASS \
+    BTree<Key, T, page_size, Compare>
 
-template<typename Key, typename T, size_t page_size, typename Compare = std::less<Key>>
-class BTree : Segment {
+IMLAB_BTREE_TEMPL class BTree : Segment {
     using key_type = Key;
-    using mapped_type = T;
+    using value_type = T;
 
-    struct Node {
-        uint16_t level;
-        uint16_t count;
+    class Node;
+    class InnerNode;
+    class LeafNode;
 
-        Node(uint16_t l, uint16_t c)
-            : level(l), count(c) {}
-
-        inline bool is_leaf() const {
-            return level == 0;
-        }
-    };
-
-    struct InnerNode : public Node {
-        static constexpr uint32_t kCapacity
-            = (page_size - sizeof(Node) - sizeof(uint64_t)) / (sizeof(Key) + sizeof(uint64_t));
-        Key keys[kCapacity];
-        uint64_t children[kCapacity + 1];
-
-        InnerNode() : Node(0, 0) {}
-
-        std::optional<uint32_t> lower_bound(const Key &key) const;
-        void insert(const Key &key, uint64_t split_page);
-        Key split(InnerNode &other);
-
-        // testing interface, not linked in prod code
-        std::vector<Key> get_key_vector() const;
-        std::vector<uint64_t> get_child_vector() const;
-    };
-    static constexpr check_size<sizeof(InnerNode), page_size, InnerNode::kCapacity> check_inner{};
-
-    struct LeafNode: public Node {
-        std::optional<uint64_t> next;
-
-        static constexpr uint32_t kCapacity
-            = (page_size - sizeof(Node) - sizeof(next)) / (sizeof(Key) + sizeof(T));
-        Key keys[kCapacity];
-        T values[kCapacity];
-
-        LeafNode() : Node(0, 0) {}
-
-        // returns first index where keys[i] >= key
-        std::optional<uint32_t> find_index(const Key &key) const;
-
-        // insert a new value, leaf can not be full
-        void insert(const Key &key, const T &value);
-        void erase(const Key &key);
-
-        // transfer half of the key/value pairs to `other`
-        // update traversal pointers to insert `other_page`
-        // returns pivot key for new page
-        Key split(LeafNode &other, uint64_t other_page);
-
-        // testing interface, not linked in prod code
-        std::vector<Key> get_key_vector() const;
-        std::vector<T> get_value_vector() const;
-    };
-    static constexpr check_size<sizeof(LeafNode), page_size, LeafNode::kCapacity> check_leaf{};
+    using reference = T&;
+    // using const_reference = const T&;
+    class iterator;
+    // class const_iterator;
 
  public:
     BTree(uint16_t segment_id, BufferManager &manager)
         : Segment(segment_id, manager) {}
 
-    const T *find(const Key &key) const;
-    // TODO range_query
+    iterator begin();
+    iterator end();
+
+    iterator lower_bound(const Key &key);
+    iterator upper_bound(const Key &key);
+    iterator find(const Key &key);
 
     void insert(const Key &key, const T &value);
-    void update(const Key &key, const T &value);
+    void insert_or_assign(const Key &key, const T &value);
     void erase(const Key &key);
 
     std::string serialize() const;
     BTree deserialize(const std::string &s);
 
-    uint64_t size() const { return count; }
-    uint64_t capacity() const { return leaf_count * LeafNode::kCapacity; }
+    uint64_t size() const;
+    uint64_t capacity() const;
 
  private:
     static constexpr Compare comp{};
@@ -110,15 +63,69 @@ class BTree : Segment {
     uint64_t leaf_count = 0;
 
     bool should_early_split() { return true; }  // TODO
-    // insert in a lock coupled manner, prevent cascadng splits by splitting
+    struct InsertResult;
+    // insert in a lock coupled manner, prevent cascading splits by splitting
     // full nodes on the path in all cases
-    // returns true if new leaf node created
-    bool insert_lc_early_split(const Key &key, const T &value);
+    InsertResult insert_lc_early_split(const Key &key);
     // try inserting in the tree without splitting, returns true on success
-    bool try_insert_lc_no_split(const Key &key, const T &value);
+    InsertResult try_insert_lc_no_split(const Key &key);
     // lock the entire path down the tree to be able to split as needed
-    // return true if new leaft node created
-    bool insert_full_lock_rec_split(const Key &key, const T &value);
+    InsertResult insert_full_lock_rec_split(const Key &key, const T &value);
+};
+
+IMLAB_BTREE_TEMPL class IMLAB_BTREE_CLASS::Node {
+ public:
+    constexpr explicit Node(uint16_t level);
+    bool is_leaf() const;
+
+ protected:
+    uint16_t level;
+    uint16_t count = 0;
+};
+
+
+IMLAB_BTREE_TEMPL class IMLAB_BTREE_CLASS::InnerNode : public Node {
+    static constexpr uint32_t kCapacity =
+        (page_size - sizeof(Node) - sizeof(uint64_t)) / (sizeof(Key) + sizeof(uint64_t));
+
+ public:
+    constexpr InnerNode(const Node &child);
+
+    uint64_t lower_bound(const Key &key) const;
+    bool full() const;
+
+    void insert(const Key &key, uint64_t split_page);
+    Key split(InnerNode &other);
+
+ private:
+    Key keys[kCapacity];
+    uint64_t children[kCapacity];
+    uint64_t right_child;
+};
+
+IMLAB_BTREE_TEMPL class IMLAB_BTREE_CLASS::LeafNode : public Node {
+    using next_ptr = std::optional<uint64_t>;
+    static constexpr uint32_t kCapacity =
+        (page_size - sizeof(Node) - sizeof(next_ptr)) / (sizeof(Key) + sizeof(T));
+
+ public:
+    constexpr LeafNode();
+
+    // returns first index where keys[i] >= key
+    std::optional<uint32_t> find_index(const Key &key) const;
+    // insert a new value, leaf can not be full
+    void insert(const Key &key, const T &value);
+    void erase(const Key &key);
+
+    // transfer half of the key/value pairs to `other`
+    // update traversal pointers to insert `other_page`
+    // returns pivot key for new page
+    Key split(LeafNode &other, uint64_t other_page);
+
+ private:
+    Key keys[kCapacity];
+    T values[kCapacity];
+    next_ptr next;
 };
 
 }  // namespace imlab

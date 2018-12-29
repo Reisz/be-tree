@@ -7,37 +7,35 @@
 #include "imlab/btree.h"
 #include <vector>
 // ---------------------------------------------------------------------------------------------------
-namespace {
-    template<typename T, typename Compare>
-    size_t lower_bound(const T* array, size_t len, const T& val, Compare comp) {
-        // precondition: lower_bound needs to be findable
-        assert(!comp(array[len - 1], val));
+template<typename T, typename Compare>
+size_t lower_bound(const T* array, size_t len, const T& val, Compare comp) {
+    // precondition: lower_bound needs to be findable
+    assert(!comp(array[len - 1], val));
 
-        // precondition: array is sorted
-        for (size_t i = 1; i < len; ++i)
-            assert(comp(array[i - 1], array[i]));
+    // precondition: array is sorted
+    for (size_t i = 1; i < len; ++i)
+        assert(comp(array[i - 1], array[i]));
 
-        size_t l = 0, r = len - 1;
-        while (l < r) {
-            size_t m = (l + r) / 2;
+    size_t l = 0, r = len - 1;
+    while (l < r) {
+        size_t m = (l + r) / 2;
 
-            if (comp(array[m], val)) {
-                l = m + 1;
-            } else if (comp(val, array[m])) {
-                r = m - 1;
-            } else {
-                return m;
-            }
+        if (comp(array[m], val)) {
+            l = m + 1;
+        } else if (comp(val, array[m])) {
+            r = m - 1;
+        } else {
+            return m;
         }
-
-        // postcondition: first index where !comp(array[index], val)
-        assert(!comp(array[l], val));
-        if (l)
-            assert(comp(array[l - 1], val));
-
-        return l;
     }
-}  // namespace
+
+    // postcondition: first index where !comp(array[index], val)
+    assert(!comp(array[l], val));
+    if (l)
+        assert(comp(array[l - 1], val));
+
+    return l;
+}
 
 
 namespace imlab {
@@ -171,6 +169,9 @@ IMLAB_BTREE_TEMPL Key IMLAB_BTREE_CLASS::LeafNode::split(LeafNode &other, uint64
     return other.keys[0];
 }
 // ---------------------------------------------------------------------------------------------------
+IMLAB_BTREE_TEMPL uint64_t IMLAB_BTREE_CLASS::size() const {
+    return count;
+}
 
 }  // namespace imlab
 // ---------------------------------------------------------------------------------------------------

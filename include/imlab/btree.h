@@ -15,11 +15,13 @@ namespace imlab {
 class BufferManager;
 
 #define IMLAB_BTREE_TEMPL \
-    template<typename Key, typename T, size_t page_size, typename Compare = std::less<Key>>
+    template<typename Key, typename T, size_t page_size, typename Compare>
 #define IMLAB_BTREE_CLASS \
     BTree<Key, T, page_size, Compare>
 
-IMLAB_BTREE_TEMPL class BTree : Segment {
+template<typename Key, typename T, size_t page_size, typename Compare = std::less<Key>>
+class BTree : Segment {
+ public:
     using key_type = Key;
     using value_type = T;
 
@@ -32,7 +34,6 @@ IMLAB_BTREE_TEMPL class BTree : Segment {
     class iterator;
     // class const_iterator;
 
- public:
     BTree(uint16_t segment_id, BufferManager &manager)
         : Segment(segment_id, manager) {}
 

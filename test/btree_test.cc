@@ -15,7 +15,7 @@ TEST(RBTree, Sizes) {
 }
 
 TEST(BTree, InsertEmptyTree) {
-    imlab::BufferManager buffer_manager(1024, 100);
+    imlab::BufferManager<1024> buffer_manager{100};
     BTreeTest<1024> tree(0, buffer_manager);
 
     // tree.insert(12, 34);

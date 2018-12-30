@@ -1,62 +1,25 @@
 // ---------------------------------------------------------------------------------------------------
+// IMLAB
+// ---------------------------------------------------------------------------------------------------
+#ifndef SRC_BUFFER_MANAGER_HPP_
+#define SRC_BUFFER_MANAGER_HPP_
+// ---------------------------------------------------------------------------------------------------
 #include "imlab/segment_file.h"
 #include "imlab/buffer_manager.h"
 // ---------------------------------------------------------------------------------------------------
 namespace imlab {
 
-namespace {
+BUFFER_MANAGER_TEMPL constexpr BUFFER_MANAGER_CLASS::BufferManager(size_t page_count)
+: page_count(page_count) {}
 
-    void load_page(Page &p, size_t page_size) {
-        SegmentFile f{p.page_id, page_size};
-        f.read(p.data.get());
-    }
-
-    void save_page(Page &p, size_t page_size) {
-        SegmentFile f{p.page_id, page_size};
-        f.write(p.data.get());
-    }
-
-}  // namespace
-
-BufferFix::~BufferFix() {
-    unfix();
-}
-
-void BufferFix::unfix() {
-    if (page)
-    manager->unfix(page);
-    page = nullptr;
-}
-
-const std::byte *BufferFix::data() const {
-    if (page)
-        return page->data.get();
-    return nullptr;
-}
-
-std::byte *BufferFixExclusive::data() {
-    if (page)
-        return page->data.get();
-    return nullptr;
-}
-
-void BufferFixExclusive::set_dirty() {
-    page->data_state = Page::Dirty;
-}
-
-// ---------------------------------------------------------------------------------------------------
-
-BufferManager::BufferManager(size_t page_size, size_t page_count)
-: page_size(page_size), page_count(page_count) {}
-
-BufferManager::~BufferManager() {
+BUFFER_MANAGER_TEMPL BUFFER_MANAGER_CLASS::~BufferManager() {
     for (auto &entry : pages) {
         if (entry.second.data_state == Page::Dirty)
-            save_page(entry.second, page_size);
+            save_page(entry.second);
     }
 }
 
-Page *BufferManager::fix(uint64_t page_id, bool exclusive) {
+BUFFER_MANAGER_TEMPL typename BUFFER_MANAGER_CLASS::Page *BUFFER_MANAGER_CLASS::fix(uint64_t page_id, bool exclusive) {
     std::unique_lock<std::mutex> lock(mutex);
 
     Page *p = nullptr;
@@ -68,19 +31,20 @@ Page *BufferManager::fix(uint64_t page_id, bool exclusive) {
             p = try_fix_new(pages.emplace_hint(it,
                 std::piecewise_construct,
                 std::forward_as_tuple(page_id),
-                std::forward_as_tuple(page_id, page_size)), exclusive);
+                std::forward_as_tuple(page_id)), exclusive);
         }
     }
 
     return p;
 }
 
-void BufferManager::unfix(Page *page) {
+BUFFER_MANAGER_TEMPL void BUFFER_MANAGER_CLASS::unfix(Page *page) {
     std::unique_lock<std::mutex> lock(mutex);
     page->unfix();
 }
 
-Page *BufferManager::try_fix_existing(PageMap::iterator it, bool exclusive) {
+BUFFER_MANAGER_TEMPL
+typename BUFFER_MANAGER_CLASS::Page *BUFFER_MANAGER_CLASS::try_fix_existing(typename BUFFER_MANAGER_CLASS::PageMap::iterator it, bool exclusive) {
     Page &p = it->second;
 
     // page is currently writing back & getting deleted -> wait & try again
@@ -106,7 +70,8 @@ Page *BufferManager::try_fix_existing(PageMap::iterator it, bool exclusive) {
     return &p;
 }
 
-Page *BufferManager::try_fix_new(PageMap::iterator it, bool exclusive) {
+BUFFER_MANAGER_TEMPL
+typename BUFFER_MANAGER_CLASS::Page *BUFFER_MANAGER_CLASS::try_fix_new(typename BUFFER_MANAGER_CLASS::PageMap::iterator it, bool exclusive) {
     Page &p = it->second;
 
     if (!try_reserve_space()) {
@@ -118,7 +83,7 @@ Page *BufferManager::try_fix_new(PageMap::iterator it, bool exclusive) {
     add_to_fifo(&p);
 
     // TODO unlock
-    load_page(p, page_size);
+    load_page(p);
     // TODO relock
     p.data_state = Page::Clean;
     // TODO notify?
@@ -126,7 +91,7 @@ Page *BufferManager::try_fix_new(PageMap::iterator it, bool exclusive) {
     return &p;
 }
 
-bool BufferManager::try_reserve_space() {
+BUFFER_MANAGER_TEMPL bool BUFFER_MANAGER_CLASS::try_reserve_space() {
     if (loaded_page_count < page_count) {
         ++loaded_page_count;
     } else {
@@ -138,7 +103,7 @@ bool BufferManager::try_reserve_space() {
         if (steal->data_state == Page::Dirty) {
             steal->data_state = Page::Writing;
             // TODO unlock
-            save_page(*steal, page_size);
+            save_page(*steal);
             // TODO relock
             // TODO notify ?
         }
@@ -149,7 +114,7 @@ bool BufferManager::try_reserve_space() {
     return true;
 }
 
-void BufferManager::add_to_fifo(Page *p) {
+BUFFER_MANAGER_TEMPL void BUFFER_MANAGER_CLASS::add_to_fifo(Page *p) {
     remove_from_queues(p);
 
     if (!fifo_tail) {
@@ -161,7 +126,7 @@ void BufferManager::add_to_fifo(Page *p) {
     }
 }
 
-void BufferManager::add_to_lru(Page *p) {
+BUFFER_MANAGER_TEMPL void BUFFER_MANAGER_CLASS::add_to_lru(Page *p) {
     remove_from_queues(p);
 
     if (!lru_tail) {
@@ -173,7 +138,7 @@ void BufferManager::add_to_lru(Page *p) {
     }
 }
 
-void BufferManager::remove_from_queues(Page *p) {
+BUFFER_MANAGER_TEMPL void BUFFER_MANAGER_CLASS::remove_from_queues(Page *p) {
     // update heads & tails
     if (p == lru_head) {
       lru_head = p->next;
@@ -200,7 +165,7 @@ void BufferManager::remove_from_queues(Page *p) {
     p->prev = p->next = nullptr;
 }
 
-Page *BufferManager::find_unfixed() {
+BUFFER_MANAGER_TEMPL typename BUFFER_MANAGER_CLASS::Page *BUFFER_MANAGER_CLASS::find_unfixed() {
     Page *p = fifo_head;
 
     if (p) {
@@ -220,5 +185,69 @@ Page *BufferManager::find_unfixed() {
     return p;
 }
 
+BUFFER_MANAGER_TEMPL void BUFFER_MANAGER_CLASS::load_page(Page &p) {
+    SegmentFile f{p.page_id, page_size};
+    f.read(p.data.get());
+}
+
+BUFFER_MANAGER_TEMPL void BUFFER_MANAGER_CLASS::save_page(const Page &p) {
+    SegmentFile f{p.page_id, page_size};
+    f.write(p.data.get());
+}
+
+// ---------------------------------------------------------------------------------------------------
+
+BUFFER_MANAGER_TEMPL constexpr BUFFER_MANAGER_CLASS::Page::Page(uint64_t page_id)
+    : page_id(page_id), data(new std::byte[page_size]) {}
+
+BUFFER_MANAGER_TEMPL bool BUFFER_MANAGER_CLASS::Page::can_fix(bool exclusive) {
+    if (exclusive)
+        return fix_count == 0;
+    return fix_count >= 0;
+}
+
+BUFFER_MANAGER_TEMPL void BUFFER_MANAGER_CLASS::Page::fix(bool exclusive) {
+    if (exclusive)
+        fix_count = -1;
+    else
+        fix_count++;
+}
+
+BUFFER_MANAGER_TEMPL void BUFFER_MANAGER_CLASS::Page::unfix() {
+    if (fix_count > 0)
+        --fix_count;
+    else
+        fix_count = 0;
+}
+
+// ---------------------------------------------------------------------------------------------------
+
+BUFFER_MANAGER_TEMPL BUFFER_MANAGER_CLASS::Fix::~Fix() {
+    unfix();
+}
+
+BUFFER_MANAGER_TEMPL void BUFFER_MANAGER_CLASS::Fix::unfix() {
+    if (page)
+    manager->unfix(page);
+    page = nullptr;
+}
+
+BUFFER_MANAGER_TEMPL const std::byte *BUFFER_MANAGER_CLASS::Fix::data() const {
+    if (page)
+        return page->data.get();
+    return nullptr;
+}
+
+BUFFER_MANAGER_TEMPL std::byte *BUFFER_MANAGER_CLASS::ExculsiveFix::data() {
+    if (this->page)
+        return this->page->data.get();
+    return nullptr;
+}
+
+BUFFER_MANAGER_TEMPL void BUFFER_MANAGER_CLASS::ExculsiveFix::set_dirty() {
+    this->page->data_state = Page::Dirty;
+}
+
 }  // namespace imlab
 // ---------------------------------------------------------------------------------------------------
+#endif  // SRC_BUFFER_MANAGER_HPP_

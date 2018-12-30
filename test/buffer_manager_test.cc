@@ -5,7 +5,7 @@
 #include <cstring>
 #include "imlab/buffer_manager.h"
 // ---------------------------------------------------------------------------------------------------
-const std::vector<uint64_t> imlab::BufferManager::get_fifo() const {
+BUFFER_MANAGER_TEMPL const std::vector<uint64_t> imlab::BUFFER_MANAGER_CLASS::get_fifo() const {
     std::vector<uint64_t> result;
 
     Page *p = fifo_head;
@@ -17,7 +17,7 @@ const std::vector<uint64_t> imlab::BufferManager::get_fifo() const {
     return result;
 }
 
-const std::vector<uint64_t> imlab::BufferManager::get_lru() const {
+BUFFER_MANAGER_TEMPL const std::vector<uint64_t> imlab::BUFFER_MANAGER_CLASS::get_lru() const {
     std::vector<uint64_t> result;
 
     Page *p = lru_head;
@@ -32,7 +32,7 @@ const std::vector<uint64_t> imlab::BufferManager::get_lru() const {
 namespace {
 // ---------------------------------------------------------------------------------------------------
 TEST(BufferManager, FixSingle) {
-    imlab::BufferManager manager{1024, 10};
+    imlab::BufferManager<1024> manager{10};
     std::vector<uint64_t> expected_values(1024 / sizeof(uint64_t), 123);
     {
         auto fix = manager.fix_exclusive(1);
@@ -55,7 +55,7 @@ TEST(BufferManager, FixSingle) {
 
 TEST(BufferManager, PersistentRestart) {
     {
-        imlab::BufferManager manager{1024, 10};
+        imlab::BufferManager<1024> manager{10};
         for (uint16_t segment = 0; segment < 3; ++segment) {
             for (uint64_t segment_page = 0; segment_page < 10; ++segment_page) {
                 uint64_t page_id = (static_cast<uint64_t>(segment) << 48) | segment_page;
@@ -67,7 +67,7 @@ TEST(BufferManager, PersistentRestart) {
         }
     }
     {
-        imlab::BufferManager manager{1024, 10};
+        imlab::BufferManager<1024> manager{10};
         for (uint16_t segment = 0; segment < 3; ++segment) {
             for (uint64_t segment_page = 0; segment_page < 10; ++segment_page) {
                 uint64_t page_id = (static_cast<uint64_t>(segment) << 48) | segment_page;
@@ -81,7 +81,7 @@ TEST(BufferManager, PersistentRestart) {
 }
 
 TEST(BufferManager, FIFOEvict) {
-    imlab::BufferManager manager{1024, 10};
+    imlab::BufferManager<1024> manager{10};
     for (uint64_t i = 1; i < 11; ++i) {
         auto fix = manager.fix(i);
     }
@@ -104,9 +104,9 @@ TEST(BufferManager, FIFOEvict) {
 }
 
 TEST(BufferManager, BufferFull) {
-    imlab::BufferManager manager{1024, 10};
+    imlab::BufferManager<1024> manager{10};
 
-    std::vector<imlab::BufferFix> pages;
+    std::vector<imlab::BufferManager<1024>::Fix> pages;
     pages.reserve(10);
 
     for (uint64_t i = 1; i < 11; ++i) {
@@ -117,7 +117,7 @@ TEST(BufferManager, BufferFull) {
 }
 
 TEST(BufferManager, MoveToLRU) {
-    imlab::BufferManager manager{1024, 2};
+    imlab::BufferManager<1024> manager{2};
 
     manager.fix(1);
     manager.fix(2);
@@ -132,7 +132,7 @@ TEST(BufferManager, MoveToLRU) {
 }
 
 TEST(BufferManager, LRURefresh) {
-    imlab::BufferManager manager{1024, 10};
+    imlab::BufferManager<1024> manager{10};
 
     manager.fix(1);
     manager.fix(1);

@@ -9,84 +9,30 @@
 #include <unordered_map>
 #include <mutex>
 #include <memory>
-#include "imlab/buffer_manager_page.h"
 // ---------------------------------------------------------------------------------------------------
 namespace imlab {
 
-class BufferManager;
+#define BUFFER_MANAGER_TEMPL \
+    template<size_t page_size>
+#define BUFFER_MANAGER_CLASS \
+    BufferManager<page_size>
 
-// owned representation of a fix on a page
-class BufferFix {
-    friend class BufferManager;
+BUFFER_MANAGER_TEMPL class BufferManager {
+    struct Page;
  public:
-    BufferFix() = default;
-    BufferFix(const BufferFix &) = delete;
-    BufferFix &operator=(const BufferFix &) = delete;
-    inline BufferFix(BufferFix &&o) noexcept {
-        *this = std::move(o);
-    }
-    constexpr BufferFix &operator=(BufferFix &&o) noexcept {
-        if (this != &o) {
-            unfix();
+     // owned representation of a fix on a page
+    class Fix;
+    class ExculsiveFix;
 
-            this->manager = o.manager;
-            this->page = o.page;
-
-            o.page = nullptr;
-        }
-
-        return *this;
-    }
-
-    // unfix page automatically
-    ~BufferFix();
-    void unfix();
-
-    // get pointer for non exclusive fix
-    const std::byte *data() const;
-
- protected:
-    constexpr BufferFix(Page *page, BufferManager *manager)
-        : page(page), manager(manager) {}
-    Page *page = nullptr;
-
- private:
-    BufferManager *manager;
-};
-
-class BufferFixExclusive : public BufferFix {
-    friend class BufferManager;
- public:
-    BufferFixExclusive() = default;
-
-    // get pointer for exclusive fix
-    std::byte *data();
-    // mark page for writeback
-    void set_dirty();
- private:
-    constexpr BufferFixExclusive(Page *page, BufferManager *manager)
-        : BufferFix(page, manager) {}
-};
-
-class buffer_full_error : public std::exception {
- public:
-    const char* what() const noexcept override {
-        return "buffer is full";
-    }
-};
-
-class BufferManager {
-    friend class BufferFix;
- public:
-    explicit BufferManager(size_t page_size, size_t page_count);
+    explicit constexpr BufferManager(size_t page_count);
     ~BufferManager();
 
     // fix interface
-    inline BufferFix fix(uint64_t page_id) {
-        return BufferFix(fix(page_id, false), this);
+    inline Fix fix(uint64_t page_id) {
+        return Fix(fix(page_id, false), this);
     }
-    inline BufferFixExclusive fix_exclusive(uint64_t page_id) {
-        return BufferFixExclusive(fix(page_id, true), this);
+    inline ExculsiveFix fix_exclusive(uint64_t page_id) {
+        return ExculsiveFix(fix(page_id, true), this);
     }
 
     // testing interface, not linked in prod code
@@ -101,11 +47,11 @@ class BufferManager {
     using PageMap = std::unordered_map<uint64_t, Page>;
     PageMap pages;
 
-    Page *try_fix_existing(PageMap::iterator it, bool exclusive);
-    Page *try_fix_new(PageMap::iterator it, bool exclusive);
+    Page *try_fix_existing(typename PageMap::iterator it, bool exclusive);
+    Page *try_fix_new(typename PageMap::iterator it, bool exclusive);
     bool try_reserve_space();
 
-    const size_t page_size, page_count;
+    const size_t page_count;
     size_t loaded_page_count = 0;
 
     // queue management
@@ -115,11 +61,95 @@ class BufferManager {
     Page *find_unfixed();
     Page *fifo_head = nullptr, *fifo_tail = nullptr, *lru_head = nullptr, *lru_tail = nullptr;
 
+    // backstore
+    void load_page(Page &p);
+    void save_page(const Page &p);
+
     // global mutex
     // TODO finer lock granularity
     std::mutex mutex;
 };
 
+BUFFER_MANAGER_TEMPL struct BUFFER_MANAGER_CLASS::Page {
+    enum DataState { Reading, Clean, Dirty, Writing };
+
+    constexpr Page(uint64_t page_id);
+    ~Page() = default;
+
+    bool can_fix(bool exclusive);
+    void fix(bool exclusive);
+    void unfix();
+
+    uint64_t page_id;
+    int32_t fix_count = 0;
+
+    DataState data_state = Reading;
+    std::unique_ptr<std::byte[]> data;
+
+    Page *prev = nullptr, *next = nullptr;
+};
+
+BUFFER_MANAGER_TEMPL class BufferManager<page_size>::Fix {
+    friend class BufferManager;
+ public:
+    Fix() = default;
+    Fix(const Fix &) = delete;
+    Fix &operator=(const Fix &) = delete;
+    inline Fix(Fix &&o) noexcept {
+        *this = std::move(o);
+    }
+    constexpr Fix &operator=(Fix &&o) noexcept {
+        if (this != &o) {
+            unfix();
+
+            this->manager = o.manager;
+            this->page = o.page;
+
+            o.page = nullptr;
+        }
+
+        return *this;
+    }
+
+    // unfix page automatically
+    ~Fix();
+    void unfix();
+
+    // get pointer for non exclusive fix
+    const std::byte *data() const;
+
+ protected:
+    constexpr Fix(Page *page, BufferManager *manager)
+        : page(page), manager(manager) {}
+    Page *page = nullptr;
+
+ private:
+    BufferManager *manager;
+};
+
+BUFFER_MANAGER_TEMPL class BUFFER_MANAGER_CLASS::ExculsiveFix : public Fix {
+    friend class BufferManager;
+ public:
+    ExculsiveFix() = default;
+
+    // get pointer for exclusive fix
+    std::byte *data();
+    // mark page for writeback
+    void set_dirty();
+ private:
+    constexpr ExculsiveFix(Page *page, BufferManager *manager)
+        : Fix(page, manager) {}
+};
+
+class buffer_full_error : public std::exception {
+ public:
+    const char* what() const noexcept override {
+        return "buffer is full";
+    }
+};
+
 }  // namespace imlab
+// ---------------------------------------------------------------------------------------------------
+#include "buffer_manager.hpp"
 // ---------------------------------------------------------------------------------------------------
 #endif  // INCLUDE_IMLAB_BUFFER_MANAGER_H_

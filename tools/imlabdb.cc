@@ -26,7 +26,7 @@ bool ValidateDirectory(const char *flagname, const std::string &value) {
 }  // namespace
 // ---------------------------------------------------------------------------------------------------
 int main(int argc, char *argv[]) {
-    imlab::BufferManager manager{1024, 10};
+    imlab::BufferManager<1024> manager{10};
     return 0;
 }
 // ---------------------------------------------------------------------------------------------------

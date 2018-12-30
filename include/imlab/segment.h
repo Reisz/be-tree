@@ -9,9 +9,9 @@
 // ---------------------------------------------------------------------------------------------------
 namespace imlab {
 
-class Segment {
+template <size_t page_size> class Segment {
  public:
-    constexpr Segment(uint16_t segment_id, BufferManager &manager)
+    constexpr Segment(uint16_t segment_id, BufferManager<page_size> &manager)
         : segment_id_mask(((uint64_t) segment_id) << 48), manager(manager) {}
 
     uint64_t segment_page_id(uint64_t id) const {
@@ -20,7 +20,7 @@ class Segment {
     }
 
  protected:
-    BufferManager& manager;
+    BufferManager<page_size>& manager;
 
  private:
     uint64_t segment_id_mask;

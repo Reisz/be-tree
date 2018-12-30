@@ -3,7 +3,7 @@
 // ---------------------------------------------------------------------------------------------------
 #ifndef SRC_BTREE_HPP_
 #define SRC_BTREE_HPP_
-
+// ---------------------------------------------------------------------------------------------------
 #include "imlab/btree.h"
 #include <vector>
 // ---------------------------------------------------------------------------------------------------
@@ -87,7 +87,7 @@ IMLAB_BTREE_TEMPL void IMLAB_BTREE_CLASS::InnerNode::insert(const Key &key, uint
 
 // TODO
 IMLAB_BTREE_TEMPL Key IMLAB_BTREE_CLASS::InnerNode::split(InnerNode &other) {
-    assert(other.level == level);
+    assert(other.level == this->level);
     assert(other.count == 0);
 
     uint32_t start = this->count / 2;

@@ -19,6 +19,14 @@ BUFFER_MANAGER_TEMPL BUFFER_MANAGER_CLASS::~BufferManager() {
     }
 }
 
+BUFFER_MANAGER_TEMPL typename BUFFER_MANAGER_CLASS::Fix BUFFER_MANAGER_CLASS::fix(uint64_t page_id) {
+    return Fix(fix(page_id, false), this);
+}
+
+BUFFER_MANAGER_TEMPL typename BUFFER_MANAGER_CLASS::ExculsiveFix BUFFER_MANAGER_CLASS::fix_exclusive(uint64_t page_id) {
+    return ExculsiveFix(fix(page_id, true), this);
+}
+
 BUFFER_MANAGER_TEMPL typename BUFFER_MANAGER_CLASS::Page *BUFFER_MANAGER_CLASS::fix(uint64_t page_id, bool exclusive) {
     std::unique_lock<std::mutex> lock(mutex);
 
@@ -222,6 +230,29 @@ BUFFER_MANAGER_TEMPL void BUFFER_MANAGER_CLASS::Page::unfix() {
 
 // ---------------------------------------------------------------------------------------------------
 
+BUFFER_MANAGER_TEMPL constexpr BUFFER_MANAGER_CLASS::Fix::Fix(Page *page, BufferManager *manager) noexcept
+    : page(page), manager(manager) {}
+
+BUFFER_MANAGER_TEMPL constexpr BUFFER_MANAGER_CLASS::Fix::Fix(Fix &&o) noexcept {
+    *this = std::move(o);
+}
+
+BUFFER_MANAGER_TEMPL constexpr typename BUFFER_MANAGER_CLASS::Fix &BUFFER_MANAGER_CLASS::Fix::operator=(Fix &&o) noexcept {
+    if (this != &o) {
+        unfix();
+
+        this->manager = o.manager;
+        this->page = o.page;
+
+        o.page = nullptr;
+    }
+
+    return *this;
+}
+
+BUFFER_MANAGER_TEMPL constexpr BUFFER_MANAGER_CLASS::ExculsiveFix::ExculsiveFix(Page *page, BufferManager *manager) noexcept
+        : Fix(page, manager) {}
+
 BUFFER_MANAGER_TEMPL BUFFER_MANAGER_CLASS::Fix::~Fix() {
     unfix();
 }
@@ -242,6 +273,16 @@ BUFFER_MANAGER_TEMPL std::byte *BUFFER_MANAGER_CLASS::ExculsiveFix::data() {
     if (this->page)
         return this->page->data.get();
     return nullptr;
+}
+
+BUFFER_MANAGER_TEMPL template<typename T> const T *BUFFER_MANAGER_CLASS::Fix::as() const {
+    static_assert(sizeof(T) <= page_size);
+    return reinterpret_cast<T*>(data());
+}
+
+BUFFER_MANAGER_TEMPL template<typename T> T *BUFFER_MANAGER_CLASS::ExculsiveFix::as() {
+    static_assert(sizeof(T) <= page_size);
+    return reinterpret_cast<T*>(data());
 }
 
 BUFFER_MANAGER_TEMPL void BUFFER_MANAGER_CLASS::ExculsiveFix::set_dirty() {

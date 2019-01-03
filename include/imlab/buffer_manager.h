@@ -28,12 +28,8 @@ BUFFER_MANAGER_TEMPL class BufferManager {
     ~BufferManager();
 
     // fix interface
-    inline Fix fix(uint64_t page_id) {
-        return Fix(fix(page_id, false), this);
-    }
-    inline ExculsiveFix fix_exclusive(uint64_t page_id) {
-        return ExculsiveFix(fix(page_id, true), this);
-    }
+    Fix fix(uint64_t page_id);
+    ExculsiveFix fix_exclusive(uint64_t page_id);
 
     // testing interface, not linked in prod code
     const std::vector<uint64_t> get_fifo() const;
@@ -93,23 +89,12 @@ BUFFER_MANAGER_TEMPL class BufferManager<page_size>::Fix {
     friend class BufferManager;
  public:
     Fix() = default;
+
     Fix(const Fix &) = delete;
     Fix &operator=(const Fix &) = delete;
-    inline Fix(Fix &&o) noexcept {
-        *this = std::move(o);
-    }
-    constexpr Fix &operator=(Fix &&o) noexcept {
-        if (this != &o) {
-            unfix();
 
-            this->manager = o.manager;
-            this->page = o.page;
-
-            o.page = nullptr;
-        }
-
-        return *this;
-    }
+    constexpr Fix(Fix &&o) noexcept;
+    constexpr Fix &operator=(Fix &&o) noexcept;
 
     // unfix page automatically
     ~Fix();
@@ -117,10 +102,10 @@ BUFFER_MANAGER_TEMPL class BufferManager<page_size>::Fix {
 
     // get pointer for non exclusive fix
     const std::byte *data() const;
+    template<typename T> const T *as() const;
 
  protected:
-    constexpr Fix(Page *page, BufferManager *manager)
-        : page(page), manager(manager) {}
+    constexpr Fix(Page *page, BufferManager *manager) noexcept;
     Page *page = nullptr;
 
  private:
@@ -134,11 +119,12 @@ BUFFER_MANAGER_TEMPL class BUFFER_MANAGER_CLASS::ExculsiveFix : public Fix {
 
     // get pointer for exclusive fix
     std::byte *data();
+    template<typename T> T *as();
+
     // mark page for writeback
     void set_dirty();
  private:
-    constexpr ExculsiveFix(Page *page, BufferManager *manager)
-        : Fix(page, manager) {}
+    constexpr ExculsiveFix(Page *page, BufferManager *manager) noexcept;
 };
 
 class buffer_full_error : public std::exception {

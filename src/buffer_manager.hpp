@@ -23,8 +23,8 @@ BUFFER_MANAGER_TEMPL typename BUFFER_MANAGER_CLASS::Fix BUFFER_MANAGER_CLASS::fi
     return Fix(fix(page_id, false), this);
 }
 
-BUFFER_MANAGER_TEMPL typename BUFFER_MANAGER_CLASS::ExculsiveFix BUFFER_MANAGER_CLASS::fix_exclusive(uint64_t page_id) {
-    return ExculsiveFix(fix(page_id, true), this);
+BUFFER_MANAGER_TEMPL typename BUFFER_MANAGER_CLASS::ExclusiveFix BUFFER_MANAGER_CLASS::fix_exclusive(uint64_t page_id) {
+    return ExclusiveFix(fix(page_id, true), this);
 }
 
 BUFFER_MANAGER_TEMPL typename BUFFER_MANAGER_CLASS::Page *BUFFER_MANAGER_CLASS::fix(uint64_t page_id, bool exclusive) {
@@ -250,7 +250,7 @@ BUFFER_MANAGER_TEMPL constexpr typename BUFFER_MANAGER_CLASS::Fix &BUFFER_MANAGE
     return *this;
 }
 
-BUFFER_MANAGER_TEMPL constexpr BUFFER_MANAGER_CLASS::ExculsiveFix::ExculsiveFix(Page *page, BufferManager *manager) noexcept
+BUFFER_MANAGER_TEMPL constexpr BUFFER_MANAGER_CLASS::ExclusiveFix::ExclusiveFix(Page *page, BufferManager *manager) noexcept
         : Fix(page, manager) {}
 
 BUFFER_MANAGER_TEMPL BUFFER_MANAGER_CLASS::Fix::~Fix() {
@@ -269,7 +269,7 @@ BUFFER_MANAGER_TEMPL const std::byte *BUFFER_MANAGER_CLASS::Fix::data() const {
     return nullptr;
 }
 
-BUFFER_MANAGER_TEMPL std::byte *BUFFER_MANAGER_CLASS::ExculsiveFix::data() {
+BUFFER_MANAGER_TEMPL std::byte *BUFFER_MANAGER_CLASS::ExclusiveFix::data() {
     if (this->page)
         return this->page->data.get();
     return nullptr;
@@ -280,12 +280,12 @@ BUFFER_MANAGER_TEMPL template<typename T> const T *BUFFER_MANAGER_CLASS::Fix::as
     return reinterpret_cast<T*>(data());
 }
 
-BUFFER_MANAGER_TEMPL template<typename T> T *BUFFER_MANAGER_CLASS::ExculsiveFix::as() {
+BUFFER_MANAGER_TEMPL template<typename T> T *BUFFER_MANAGER_CLASS::ExclusiveFix::as() {
     static_assert(sizeof(T) <= page_size);
     return reinterpret_cast<T*>(data());
 }
 
-BUFFER_MANAGER_TEMPL void BUFFER_MANAGER_CLASS::ExculsiveFix::set_dirty() {
+BUFFER_MANAGER_TEMPL void BUFFER_MANAGER_CLASS::ExclusiveFix::set_dirty() {
     this->page->data_state = Page::Dirty;
 }
 

@@ -22,14 +22,14 @@ BUFFER_MANAGER_TEMPL class BufferManager {
  public:
      // owned representation of a fix on a page
     class Fix;
-    class ExculsiveFix;
+    class ExclusiveFix;
 
     explicit constexpr BufferManager(size_t page_count);
     ~BufferManager();
 
     // fix interface
     Fix fix(uint64_t page_id);
-    ExculsiveFix fix_exclusive(uint64_t page_id);
+    ExclusiveFix fix_exclusive(uint64_t page_id);
 
     // testing interface, not linked in prod code
     const std::vector<uint64_t> get_fifo() const;
@@ -112,10 +112,10 @@ BUFFER_MANAGER_TEMPL class BufferManager<page_size>::Fix {
     BufferManager *manager;
 };
 
-BUFFER_MANAGER_TEMPL class BUFFER_MANAGER_CLASS::ExculsiveFix : public Fix {
+BUFFER_MANAGER_TEMPL class BUFFER_MANAGER_CLASS::ExclusiveFix : public Fix {
     friend class BufferManager;
  public:
-    ExculsiveFix() = default;
+    ExclusiveFix() = default;
 
     // get pointer for exclusive fix
     std::byte *data();
@@ -124,7 +124,7 @@ BUFFER_MANAGER_TEMPL class BUFFER_MANAGER_CLASS::ExculsiveFix : public Fix {
     // mark page for writeback
     void set_dirty();
  private:
-    constexpr ExculsiveFix(Page *page, BufferManager *manager) noexcept;
+    constexpr ExclusiveFix(Page *page, BufferManager *manager) noexcept;
 };
 
 class buffer_full_error : public std::exception {

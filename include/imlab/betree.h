@@ -26,6 +26,7 @@ class BeTree : Segment<page_size> {
     class InnerNode;
     class LeafNode;
 
+    struct MessageKey;
     struct Message;
     struct InsertMessage;
     struct InsertOrUpdateMessage;
@@ -64,6 +65,14 @@ class BeTree : Segment<page_size> {
 
     uint64_t count = 0;
     uint64_t leaf_count = 0;
+};
+
+IMLAB_BETREE_TEMPL struct IMLAB_BETREE_CLASS::Node {
+    constexpr explicit Node(uint16_t level);
+    bool is_leaf() const;
+
+    uint16_t level;
+    uint16_t count = 0;
 };
 
 }  // namespace imlab

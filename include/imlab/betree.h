@@ -6,6 +6,7 @@
 
 #include <functional>
 #include "imlab/segment.h"
+#include "imlab/rbtree.h"
 // ---------------------------------------------------------------------------------------------------
 namespace imlab {
 
@@ -32,6 +33,12 @@ class BeTree : Segment<page_size> {
     struct InsertOrUpdateMessage;
     struct UpsertMessage;
     struct EraseMessage;
+
+    using MessageMap = RBTree<MessageKey, epsilon, std::less<MessageKey>,
+        InsertMessage, InsertOrUpdateMessage, UpsertMessage, EraseMessage>;
+    enum class Msg : uint8_t {
+        Insert, InsertOrUpdate, Upsert, Erase
+    };
 
     using reference = T&;
     // using const_reference = const T&;
@@ -73,6 +80,65 @@ IMLAB_BETREE_TEMPL struct IMLAB_BETREE_CLASS::Node {
 
     uint16_t level;
     uint16_t count = 0;
+};
+
+IMLAB_BETREE_TEMPL class IMLAB_BETREE_CLASS::InnerNode : public Node {
+ public:
+    static_assert(epsilon < page_size);
+    static constexpr uint32_t kCapacity =
+        (page_size - sizeof(Node) - sizeof(uint64_t) - epsilon) / (sizeof(Key) + sizeof(uint64_t));
+
+    constexpr InnerNode(const Node &child);
+
+    uint64_t lower_bound(const Key &key) const;
+    bool full() const;
+
+    void insert(const Key &key, uint64_t split_page);
+    Key split(InnerNode &other);
+
+ private:
+    MessageMap messages;
+    Key keys[kCapacity];
+    uint64_t children[kCapacity];
+    uint64_t right_child;
+};
+
+IMLAB_BETREE_TEMPL class IMLAB_BETREE_CLASS::LeafNode : public Node {
+ public:
+    using next_ptr = std::optional<uint64_t>;
+    static constexpr uint32_t kCapacity =
+        (page_size - sizeof(Node) - sizeof(next_ptr)) / (sizeof(Key) + sizeof(T));
+
+    constexpr LeafNode();
+
+    // returns first index where keys[i] >= key
+    uint32_t lower_bound(const Key &key) const;
+    const T &at(uint32_t idx) const;
+    T &at(uint32_t idx);
+    bool is_equal(const Key &key, uint32_t idx) const;
+
+    bool full() const;
+
+    // make space for a new value, shift others to the right
+    T &make_space(const Key &key, uint32_t idx);
+    // erase a value, shift others to the left
+    void erase(uint32_t idx);
+
+    // transfer half of the key/value pairs to `other`
+    // update traversal pointers to insert `other_page`
+    // returns pivot key for new page
+    Key split(LeafNode &other, uint64_t other_page);
+
+ private:
+    Key keys[kCapacity];
+    T values[kCapacity];
+    next_ptr next;
+};
+
+IMLAB_BETREE_TEMPL struct IMLAB_BETREE_CLASS::CoupledFixes {
+    typename BufferManager<page_size>::ExclusiveFix fix, prev;
+
+    void advance(typename BufferManager<page_size>::ExclusiveFix next);
 };
 
 }  // namespace imlab

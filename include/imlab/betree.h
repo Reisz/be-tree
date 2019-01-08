@@ -30,14 +30,14 @@ class BeTree : Segment<page_size> {
     struct MessageKey;
     struct Message {};
     struct InsertMessage;
-    struct InsertOrUpdateMessage;
+    struct InsertOrAssignMessage;
     struct UpsertMessage;
     struct EraseMessage;
 
     using MessageMap = RBTree<MessageKey, epsilon, std::less<MessageKey>,
-        InsertMessage, InsertOrUpdateMessage, UpsertMessage, EraseMessage>;
+        InsertMessage, InsertOrAssignMessage, UpsertMessage, EraseMessage>;
     enum class Msg : uint8_t {
-        Insert, InsertOrUpdate, Upsert, Erase
+        Insert, InsertOrAssign, Upsert, Erase
     };
 
     using reference = T&;
@@ -150,7 +150,15 @@ IMLAB_BETREE_TEMPL struct IMLAB_BETREE_CLASS::MessageKey {
     friend bool operator<(const MessageKey &mk, const Key &key);
 };
 
+IMLAB_BETREE_TEMPL struct IMLAB_BETREE_CLASS::InsertMessage : public Message {
+    T value;
+};
 
+IMLAB_BETREE_TEMPL struct IMLAB_BETREE_CLASS::InsertOrAssignMessage : public Message {
+    T value;
+};
+
+IMLAB_BETREE_TEMPL struct IMLAB_BETREE_CLASS::EraseMessage : public Message {};
 
 }  // namespace imlab
 // ---------------------------------------------------------------------------------------------------

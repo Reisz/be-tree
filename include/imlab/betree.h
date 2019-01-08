@@ -72,6 +72,13 @@ class BeTree : Segment<page_size> {
 
     uint64_t count = 0;
     uint64_t leaf_count = 0;
+
+    // get non-exclusive fix, might return empty fix
+    typename BufferManager<page_size>::Fix root_fix();
+    // get exclusive fix, will always return fix of valid node
+    typename BufferManager<page_size>::ExclusiveFix root_fix_exclusive();
+    typename BufferManager<page_size>::ExclusiveFix new_leaf();
+    typename BufferManager<page_size>::ExclusiveFix new_inner(const Node &child);
 };
 
 IMLAB_BETREE_TEMPL struct IMLAB_BETREE_CLASS::Node {

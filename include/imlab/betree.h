@@ -28,14 +28,9 @@ class BeTree : Segment<page_size> {
     class LeafNode;
 
     struct MessageKey;
-    struct Message {};
-    struct InsertMessage;
-    struct InsertOrAssignMessage;
-    struct UpsertMessage;
-    struct EraseMessage;
-
+    typedef T (*Upsert) (T &&);
     using MessageMap = RBTree<MessageKey, epsilon, std::less<MessageKey>,
-        InsertMessage, InsertOrAssignMessage, UpsertMessage, EraseMessage>;
+        T, T, Upsert, void>;
     enum class Msg : uint8_t {
         Insert, InsertOrAssign, Upsert, Erase
     };
@@ -156,16 +151,6 @@ IMLAB_BETREE_TEMPL struct IMLAB_BETREE_CLASS::MessageKey {
     friend bool operator<(const Key &key, const MessageKey &mk);
     friend bool operator<(const MessageKey &mk, const Key &key);
 };
-
-IMLAB_BETREE_TEMPL struct IMLAB_BETREE_CLASS::InsertMessage : public Message {
-    T value;
-};
-
-IMLAB_BETREE_TEMPL struct IMLAB_BETREE_CLASS::InsertOrAssignMessage : public Message {
-    T value;
-};
-
-IMLAB_BETREE_TEMPL struct IMLAB_BETREE_CLASS::EraseMessage : public Message {};
 
 }  // namespace imlab
 // ---------------------------------------------------------------------------------------------------

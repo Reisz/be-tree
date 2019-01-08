@@ -28,7 +28,7 @@ class BeTree : Segment<page_size> {
     class LeafNode;
 
     struct MessageKey;
-    struct Message;
+    struct Message {};
     struct InsertMessage;
     struct InsertOrUpdateMessage;
     struct UpsertMessage;
@@ -140,6 +140,17 @@ IMLAB_BETREE_TEMPL struct IMLAB_BETREE_CLASS::CoupledFixes {
 
     void advance(typename BufferManager<page_size>::ExclusiveFix next);
 };
+
+IMLAB_BETREE_TEMPL struct IMLAB_BETREE_CLASS::MessageKey {
+    Key key;
+    uint64_t timestamp;
+
+    friend bool operator<(const MessageKey &a, const MessageKey &b);
+    friend bool operator<(const Key &key, const MessageKey &mk);
+    friend bool operator<(const MessageKey &mk, const Key &key);
+};
+
+
 
 }  // namespace imlab
 // ---------------------------------------------------------------------------------------------------

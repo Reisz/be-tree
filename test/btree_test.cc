@@ -9,7 +9,7 @@ namespace {
 // ---------------------------------------------------------------------------------------------------
 template<size_t page_size> using BTreeTest = imlab::BTree<uint64_t, uint64_t, page_size>;
 
-TEST(RBTree, Sizes) {
+TEST(BTree, Sizes) {
     ASSERT_GE(1024, sizeof(BTreeTest<1024>::InnerNode));
     ASSERT_GE(1024, sizeof(BTreeTest<1024>::LeafNode));
 }

@@ -6,7 +6,11 @@
 // ---------------------------------------------------------------------------------------------------
 namespace {
 // ---------------------------------------------------------------------------------------------------
-template<size_t page_size, size_t epsilon> using BTreeTest = imlab::BeTree<uint64_t, uint64_t, page_size, epsilon>;
+template<size_t page_size, size_t epsilon> using BeTreeTest = imlab::BeTree<uint64_t, uint64_t, page_size, epsilon>;
 // ---------------------------------------------------------------------------------------------------
+TEST(BeTree, Sizes) {
+    ASSERT_GE(1024, sizeof(BeTreeTest<1024, 256>::InnerNode));
+    ASSERT_GE(1024, sizeof(BeTreeTest<1024, 256>::LeafNode));
+}
 }  // namespace
 // ---------------------------------------------------------------------------------------------------

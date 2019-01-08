@@ -19,11 +19,13 @@ namespace imlab {
 
 template<typename Key, typename T, size_t page_size, typename Compare = std::less<Key>>
 class BTree : Segment<page_size> {
+    struct CoupledFixes;
+
  public:
     using key_type = Key;
     using value_type = T;
 
-    class Node;
+    struct Node;
     class InnerNode;
     class LeafNode;
 
@@ -43,11 +45,10 @@ class BTree : Segment<page_size> {
     iterator find(const Key &key);
 
     void insert(const Key &key, const T &value);
+    void insert(const Key &key, T &&value);
     void insert_or_assign(const Key &key, const T &value);
+    void insert_or_assign(const Key &key, T &&value);
     void erase(const Key &key);
-
-    std::string serialize() const;
-    BTree deserialize(const std::string &s);
 
     uint64_t size() const;
     uint64_t capacity() const;
@@ -61,33 +62,43 @@ class BTree : Segment<page_size> {
     uint64_t count = 0;
     uint64_t leaf_count = 0;
 
-    bool should_early_split() { return true; }  // TODO
-    struct InsertResult;
+    // get non-exclusive fix, might return empty fix
+    typename BufferManager<page_size>::Fix root_fix();
+    // get exclusive fix, will always return fix of valid node
+    typename BufferManager<page_size>::ExclusiveFix root_fix_exclusive();
+    typename BufferManager<page_size>::ExclusiveFix new_leaf();
+    typename BufferManager<page_size>::ExclusiveFix new_inner(const Node &child);
+
+    T *insert_internal(const Key &key);
+    T &insert_or_assign_internal(const Key &key);
+
+    CoupledFixes split_inner(CoupledFixes inner, const Key &key);
+    CoupledFixes split_leaf(CoupledFixes leaf, const Key &key);
+
     // insert in a lock coupled manner, prevent cascading splits by splitting
     // full nodes on the path in all cases
-    InsertResult insert_lc_early_split(const Key &key);
-    // try inserting in the tree without splitting, returns true on success
-    InsertResult try_insert_lc_no_split(const Key &key);
+    CoupledFixes insert_lc_early_split(const Key &key);
+    // returns an exclusive fix to the leaf node which can contain the key
+    // leaf node could be full
+    CoupledFixes exclusive_find_node(const Key &key);
     // lock the entire path down the tree to be able to split as needed
-    InsertResult insert_full_lock_rec_split(const Key &key, const T &value);
+    CoupledFixes insert_full_lock_rec_split(const Key &key);
 };
 
-IMLAB_BTREE_TEMPL class IMLAB_BTREE_CLASS::Node {
- public:
+IMLAB_BTREE_TEMPL struct IMLAB_BTREE_CLASS::Node {
     constexpr explicit Node(uint16_t level);
     bool is_leaf() const;
 
- protected:
     uint16_t level;
     uint16_t count = 0;
 };
 
 
 IMLAB_BTREE_TEMPL class IMLAB_BTREE_CLASS::InnerNode : public Node {
+ public:
     static constexpr uint32_t kCapacity =
         (page_size - sizeof(Node) - sizeof(uint64_t)) / (sizeof(Key) + sizeof(uint64_t));
 
- public:
     constexpr InnerNode(const Node &child);
 
     uint64_t lower_bound(const Key &key) const;
@@ -103,18 +114,25 @@ IMLAB_BTREE_TEMPL class IMLAB_BTREE_CLASS::InnerNode : public Node {
 };
 
 IMLAB_BTREE_TEMPL class IMLAB_BTREE_CLASS::LeafNode : public Node {
+ public:
     using next_ptr = std::optional<uint64_t>;
     static constexpr uint32_t kCapacity =
         (page_size - sizeof(Node) - sizeof(next_ptr)) / (sizeof(Key) + sizeof(T));
 
- public:
     constexpr LeafNode();
 
     // returns first index where keys[i] >= key
-    std::optional<uint32_t> find_index(const Key &key) const;
-    // insert a new value, leaf can not be full
-    void insert(const Key &key, const T &value);
-    void erase(const Key &key);
+    uint32_t lower_bound(const Key &key) const;
+    const T &at(uint32_t idx) const;
+    T &at(uint32_t idx);
+    bool is_equal(const Key &key, uint32_t idx) const;
+
+    bool full() const;
+
+    // make space for a new value, shift others to the right
+    T &make_space(const Key &key, uint32_t idx);
+    // erase a value, shift others to the left
+    void erase(uint32_t idx);
 
     // transfer half of the key/value pairs to `other`
     // update traversal pointers to insert `other_page`
@@ -126,6 +144,14 @@ IMLAB_BTREE_TEMPL class IMLAB_BTREE_CLASS::LeafNode : public Node {
     T values[kCapacity];
     next_ptr next;
 };
+
+IMLAB_BTREE_TEMPL struct IMLAB_BTREE_CLASS::CoupledFixes {
+    typename BufferManager<page_size>::ExclusiveFix fix, prev;
+
+    void advance(typename BufferManager<page_size>::ExclusiveFix next);
+};
+
+IMLAB_BTREE_TEMPL class IMLAB_BTREE_CLASS::iterator {};  // TODO
 
 }  // namespace imlab
 // ---------------------------------------------------------------------------------------------------

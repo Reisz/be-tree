@@ -53,13 +53,13 @@ IMLAB_BTREE_TEMPL constexpr IMLAB_BTREE_CLASS::InnerNode::InnerNode(const Node &
 }
 
 IMLAB_BTREE_TEMPL uint64_t IMLAB_BTREE_CLASS::InnerNode::lower_bound(const Key &key) const {
-    if (comp(keys[count], key))
+    if (comp(keys[this->count - 1], key))
         return right_child;
-    return children[lower_bound(keys, count, key, comp)];
+    return children[::lower_bound(keys, this->count, key, comp)];
 }
 
 IMLAB_BTREE_TEMPL bool IMLAB_BTREE_CLASS::InnerNode::full() const {
-    return count == kCapacity;
+    return this->count >= kCapacity;
 }
 
 IMLAB_BTREE_TEMPL void IMLAB_BTREE_CLASS::InnerNode::insert(const Key &key, uint64_t split_page) {
@@ -104,47 +104,54 @@ IMLAB_BTREE_TEMPL Key IMLAB_BTREE_CLASS::InnerNode::split(InnerNode &other) {
     return other.keys[0];
 }
 // ---------------------------------------------------------------------------------------------------
-IMLAB_BTREE_TEMPL std::optional<uint32_t> IMLAB_BTREE_CLASS::LeafNode::find_index(const Key &key) const {
-    // TODO binary search
-    for (uint32_t i = 0; i < this->count; ++i) {
-        if (!comp(keys[i], key) && !comp(key, keys[i]))
-            return i;
-    }
-
-    return {};
+IMLAB_BTREE_TEMPL constexpr IMLAB_BTREE_CLASS::LeafNode::LeafNode()
+    : Node(0) {}
+IMLAB_BTREE_TEMPL uint32_t IMLAB_BTREE_CLASS::LeafNode::lower_bound(const Key &key) const {
+    if (comp(keys[this->count - 1], key))
+        return this->count;
+    return ::lower_bound(keys, this->count, key, comp);
 }
 
-IMLAB_BTREE_TEMPL void IMLAB_BTREE_CLASS::LeafNode::insert(const Key &key, const T &value) {
-    uint32_t i = 0;
-    // TODO binary search
-    for (; i < this->count; ++i) {
-        if (comp(keys[i], key)) {
-            break;
-        }
-    }
+IMLAB_BTREE_TEMPL const T &IMLAB_BTREE_CLASS::LeafNode::at(uint32_t idx) const {
+    assert(idx < this->count);
+    return values[idx];
+}
+
+IMLAB_BTREE_TEMPL T &IMLAB_BTREE_CLASS::LeafNode::at(uint32_t idx) {
+    assert(idx < this->count);
+    return values[idx];
+}
+
+IMLAB_BTREE_TEMPL bool IMLAB_BTREE_CLASS::LeafNode::is_equal(const Key &key, uint32_t idx) const {
+    return idx < this->count && keys[idx] == key;
+}
+
+IMLAB_BTREE_TEMPL bool IMLAB_BTREE_CLASS::LeafNode::full() const {
+    return this->count >= kCapacity;
+}
+
+IMLAB_BTREE_TEMPL T &IMLAB_BTREE_CLASS::LeafNode::make_space(const Key &key, uint32_t idx) {
+    assert(idx < kCapacity);
 
     // move to the right
-    for (uint32_t j = this->count; j > i; --j) {
+    for (uint32_t j = this->count; j > idx; --j) {
         keys[j] = keys[j - 1];
         values[j] = values[j - 1];
     }
 
     // insert
-    keys[i] = key;
-    values[i] = value;
-
+    keys[idx] = key;
     ++this->count;
+    return values[idx];
 }
 
-IMLAB_BTREE_TEMPL void IMLAB_BTREE_CLASS::LeafNode::erase(const Key &key) {
-    auto i = find_index(key);
-    if (!i)
-        return;
+IMLAB_BTREE_TEMPL void IMLAB_BTREE_CLASS::LeafNode::erase(uint32_t idx) {
+    assert(idx < this->count);
 
     // move to the left
-    for (; i < this->count - 1; ++i) {
-        keys[i] = keys[i + 1];
-        values[i] = values[i + 1];
+    for (; idx < this->count - 1; ++idx) {
+        keys[idx] = keys[idx + 1];
+        values[idx] = values[idx + 1];
     }
 
     // last element can stay in memory
@@ -169,8 +176,169 @@ IMLAB_BTREE_TEMPL Key IMLAB_BTREE_CLASS::LeafNode::split(LeafNode &other, uint64
     return other.keys[0];
 }
 // ---------------------------------------------------------------------------------------------------
+
+IMLAB_BTREE_TEMPL void IMLAB_BTREE_CLASS::insert(const Key &key, const T &value) {
+    T *i = insert_internal(key);
+    if (i)
+        *i = value;
+}
+
+IMLAB_BTREE_TEMPL void IMLAB_BTREE_CLASS::insert(const Key &key, T &&value) {
+    T *i = insert_internal(key);
+    if (i)
+        *i = value;
+}
+
+IMLAB_BTREE_TEMPL void IMLAB_BTREE_CLASS::insert_or_assign(const Key &key, const T &value) {
+    insert_or_assign_internal(key) = value;
+}
+
+IMLAB_BTREE_TEMPL void IMLAB_BTREE_CLASS::insert_or_assign(const Key &key, T &&value) {
+    insert_or_assign_internal(key) = value;
+}
+
+IMLAB_BTREE_TEMPL void IMLAB_BTREE_CLASS::erase(const Key &key) {
+    auto ir = exclusive_find_node(key);
+    auto &leaf = *ir.fix.template as<LeafNode>();
+    auto idx = leaf.lower_bound(key);
+    if (leaf.is_equal(key, idx))
+        leaf.erase(idx);
+
+    // TODO join ?
+}
+
+IMLAB_BTREE_TEMPL typename BufferManager<page_size>::Fix IMLAB_BTREE_CLASS::root_fix() {
+    if (root)
+        return this->manager.fix(root);
+    return {};
+}
+
+IMLAB_BTREE_TEMPL typename BufferManager<page_size>::ExclusiveFix IMLAB_BTREE_CLASS::root_fix_exclusive() {
+    if (root)
+        return this->manager.fix_exclusive(*root);
+
+    root = next_page_id;
+    return new_leaf();
+}
+
+IMLAB_BTREE_TEMPL typename BufferManager<page_size>::ExclusiveFix IMLAB_BTREE_CLASS::new_leaf() {
+    auto fix = this->manager.fix_exclusive(next_page_id++);
+    new (fix.data()) LeafNode();
+    ++count;
+
+    return fix;
+}
+
+IMLAB_BTREE_TEMPL typename BufferManager<page_size>::ExclusiveFix IMLAB_BTREE_CLASS::new_inner(const Node &child) {
+    auto fix = this->manager.fix_exclusive(next_page_id++);
+    new (fix.data()) InnerNode(child);
+
+    return fix;
+}
+
+IMLAB_BTREE_TEMPL T *IMLAB_BTREE_CLASS::insert_internal(const Key &key) {
+    // TODO early split when really full
+    auto ir = exclusive_find_node(key);
+    auto *leaf = ir.fix.template as<LeafNode>();
+
+    // check for key
+    auto idx = leaf->lower_bound(key);
+    if (leaf->is_equal(key, idx))
+        return nullptr;
+
+    // check for space, split if unavailable
+    if (leaf->count >= LeafNode::kCapacity) {
+        ir = insert_full_lock_rec_split(key);
+        leaf = ir.fix.template as<LeafNode>();
+        idx = leaf->lower_bound(key);
+    }
+
+    return &leaf->make_space(key, idx);
+}
+
+IMLAB_BTREE_TEMPL T &IMLAB_BTREE_CLASS::insert_or_assign_internal(const Key &key) {
+    // TODO try no split if really empty
+    auto ir = insert_lc_early_split(key);
+
+    auto &leaf = *ir.fix.template as<LeafNode>();
+    auto idx = leaf.lower_bound(key);
+
+    if (leaf.is_equal(key, idx))
+        return leaf.at(idx);
+    else
+        return leaf.make_space(key, idx);
+}
+
+IMLAB_BTREE_TEMPL typename IMLAB_BTREE_CLASS::CoupledFixes IMLAB_BTREE_CLASS::split_inner(CoupledFixes cf, const Key &key) {
+    // TODO
+
+    return cf;
+}
+
+IMLAB_BTREE_TEMPL typename IMLAB_BTREE_CLASS::CoupledFixes IMLAB_BTREE_CLASS::split_leaf(CoupledFixes cf, const Key &key) {
+    // TODO
+
+    return cf;
+}
+
+IMLAB_BTREE_TEMPL typename IMLAB_BTREE_CLASS::CoupledFixes IMLAB_BTREE_CLASS::insert_lc_early_split(const Key &key) {
+    CoupledFixes cf = { root_fix_exclusive() };
+
+    while (!cf.fix.template as<Node>()->is_leaf()) {
+        auto &inner = *cf.fix.template as<InnerNode>();
+        if (inner.full())
+            cf = split_inner(std::move(cf), key);
+
+        cf.advance(this->manager.fix_exclusive(cf.fix.template as<InnerNode>()->lower_bound(key)));
+    }
+
+    if (cf.fix.template as<LeafNode>()->full())
+        cf = split_leaf(std::move(cf), key);
+
+    return cf;
+}
+
+IMLAB_BTREE_TEMPL typename IMLAB_BTREE_CLASS::CoupledFixes IMLAB_BTREE_CLASS::exclusive_find_node(const Key &key) {
+    CoupledFixes cf = { root_fix_exclusive() };
+
+    while (!cf.fix.template as<Node>()->is_leaf())
+        cf.advance(this->manager.fix_exclusive(cf.fix.template as<InnerNode>()->lower_bound(key)));
+
+    return cf;
+}
+
+IMLAB_BTREE_TEMPL typename IMLAB_BTREE_CLASS::CoupledFixes IMLAB_BTREE_CLASS::insert_full_lock_rec_split(const Key &key) {
+    std::vector<typename BufferManager<page_size>::ExclusiveFix> fixes;
+    fixes.push_back(root_fix_exclusive());
+
+    while (!fixes.back().template as<Node>()->is_leaf())
+        fixes.push_back(this->manager.fix_exclusive(fixes.back().template as<InnerNode>()->lower_bound(key)));
+
+    auto it = fixes.rbegin();
+    if (it->template as<LeafNode>()->full()) {
+        // TODO split leaf
+        ++it;
+        for (; it != fixes.rend(); ++it) {
+            if (!it->template as<InnerNode>()->full())
+                break;
+            // TODO split inner
+        }
+    }
+
+    return { std::move(fixes.back()), std::move(*++fixes.rbegin()) };
+}
+
 IMLAB_BTREE_TEMPL uint64_t IMLAB_BTREE_CLASS::size() const {
     return count;
+}
+
+IMLAB_BTREE_TEMPL uint64_t IMLAB_BTREE_CLASS::capacity() const {
+    return leaf_count * LeafNode::kCapacity;
+}
+// ---------------------------------------------------------------------------------------------------
+IMLAB_BTREE_TEMPL void IMLAB_BTREE_CLASS::CoupledFixes::advance(typename BufferManager<page_size>::ExclusiveFix next) {
+    prev = std::move(fix);
+    fix = std::move(next);
 }
 
 }  // namespace imlab

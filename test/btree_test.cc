@@ -18,10 +18,39 @@ TEST(BTree, InsertEmptyTree) {
     imlab::BufferManager<1024> buffer_manager{100};
     BTreeTest<1024> tree(0, buffer_manager);
 
-    // tree.insert(12, 34);
-    //
-    // EXPECT_EQ(1, tree.size());
-    //
+    tree.insert(12, 34);
+    EXPECT_EQ(1, tree.size());
+
+    // auto *v = tree.find(12);
+    // ASSERT_TRUE(v);
+    // ASSERT_EQ(34, *tree.find(12));
+}
+
+TEST(BTree, InsertDoesNotOverwrite) {
+    imlab::BufferManager<1024> buffer_manager{100};
+    BTreeTest<1024> tree(0, buffer_manager);
+
+    tree.insert(12, 34);
+    EXPECT_EQ(1, tree.size());
+
+    tree.insert(12, 45);
+    EXPECT_EQ(1, tree.size());
+
+    // auto *v = tree.find(12);
+    // ASSERT_TRUE(v);
+    // ASSERT_EQ(34, *tree.find(12));
+}
+
+TEST(BTree, InsertOrAssign) {
+    imlab::BufferManager<1024> buffer_manager{100};
+    BTreeTest<1024> tree(0, buffer_manager);
+
+    tree.insert(12, 34);
+    EXPECT_EQ(1, tree.size());
+
+    tree.insert_or_assign(12, 45);
+    EXPECT_EQ(1, tree.size());
+
     // auto *v = tree.find(12);
     // ASSERT_TRUE(v);
     // ASSERT_EQ(34, *tree.find(12));

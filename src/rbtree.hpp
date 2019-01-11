@@ -71,7 +71,7 @@ namespace imlab {
                 // case 3: no / black uncle & zigzag from grandparent to node
                 if (parent == grandp->children[-child]) {
                     // fix zigzag -> now in case 4
-                    rotate(parent, -child);
+                    rotate(parent, child = -child);
                     std::swap(node, parent);
                 }
 

@@ -10,6 +10,11 @@
 // ---------------------------------------------------------------------------------------------------
 namespace imlab {
 
+#define RBTREE_TEMPL \
+    template<typename Key, size_t page_size, typename Compare, typename... Ts>
+#define RBTREE_CLASS \
+    RBTree<Key, page_size, Compare, Ts...>
+
 template<uint64_t max> struct uint_fit {
     using type =
         std::conditional_t<std::numeric_limits<uint8_t >::max() >= max, uint8_t,
@@ -27,7 +32,7 @@ class RBTree {
     // use the smallest uint that can distinguish between all value types and nodes
     using tag = uint_fit_t<sizeof...(Ts)>;
     // get element type by index
-    template <size_t I> using element_t = typename std::tuple_element<I, std::tuple<Ts...>>::type;
+    template<size_t I> using element_t = typename std::tuple_element<I, std::tuple<Ts...>>::type;
     // bookkeeping header for the tree, subratct from final data size
     struct Header;
     static constexpr size_t kDataSize = page_size - sizeof(Header);
@@ -60,7 +65,6 @@ class RBTree {
         constexpr RBNode(const Key &key, pointer value, node_pointer parent)
             : key(key), value(value), parent(parent) {}
     };
-
 
     // representation of values in the tree, grow from the end of the data area
     template<size_t I> struct RBTag {

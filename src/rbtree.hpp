@@ -18,11 +18,61 @@ RBTREE_TEMPL typename RBTREE_CLASS::const_iterator RBTREE_CLASS::begin() const {
         left = ref(left->left);
     }
 
-    return const_iterator(*this, current);
+    return const_iterator(this, current);
 }
 
 RBTREE_TEMPL typename RBTREE_CLASS::const_iterator RBTREE_CLASS::end() const {
-    return const_iterator(*this, 0);
+    return const_iterator(this, 0);
+}
+
+RBTREE_TEMPL typename RBTREE_CLASS::const_iterator RBTREE_CLASS::lower_bound(const Key &key) const {
+    auto current = ref(header.root_node);
+
+    auto result = end();
+    while (current) {
+        if (comp(current->key, key)) {
+            current = ref(current->right);
+        } else {
+            result = const_iterator(this, current);
+            if (!comp(key, current->key))
+                break;
+            current = ref(current->left);
+        }
+    }
+    return result;
+}
+
+RBTREE_TEMPL typename RBTREE_CLASS::const_iterator RBTREE_CLASS::upper_bound(const Key &key) const {
+    auto current = ref(header.root_node);
+    if (!current)
+        return end();
+
+    auto result = end();
+    while (current) {
+        if (comp(key, current->key)) {
+            result = const_iterator(this, current);
+            current = ref(current->left);
+        } else {
+            current = ref(current->right);
+        }
+    }
+
+    return result;
+}
+
+RBTREE_TEMPL typename RBTREE_CLASS::const_iterator RBTREE_CLASS::find(const Key &key) const {
+    auto current = ref(header.root_node);
+
+    while (current) {
+        if (comp(current->key, key))
+            current = ref(current->right);
+        else if (comp(key, current->key))
+            current = ref(current->left);
+        else
+            return const_iterator(this, current);
+    }
+
+    return end();
 }
 
 RBTREE_TEMPL template<typename T> std::optional<typename RBTREE_CLASS::pointer>
@@ -146,20 +196,20 @@ RBTREE_TEMPL template<size_t I> const typename RBTREE_CLASS::template element_t<
 }
 // ---------------------------------------------------------------------------------------------------
 RBTREE_TEMPL typename RBTREE_CLASS::const_iterator &RBTREE_CLASS::const_iterator::operator++() {
-    auto current = tree.ref(i);
+    auto current = tree->ref(i);
 
     // right child available: take path, then go all the way left to find smallest
     if (current->right) {
-        current = tree.ref(current->right);
+        current = tree->ref(current->right);
         do {
             i = current;
-        } while ((current = tree.ref(current->left)));
+        } while ((current = tree->ref(current->left)));
     } else {  // look at parent otherwise
-        auto parent = tree.ref(current->parent);
+        auto parent = tree->ref(current->parent);
         // left side of parent: parent is next, continue with parent otherwise
         while (parent && parent->side(current) == RBNode::Right) {
             current = parent;
-            parent = tree.ref(current->parent);
+            parent = tree->ref(current->parent);
         }
         i = parent;
     }
@@ -184,7 +234,7 @@ RBTREE_TEMPL typename RBTREE_CLASS::const_iterator RBTREE_CLASS::const_iterator:
 }
 
 RBTREE_TEMPL bool RBTREE_CLASS::const_iterator::operator==(const const_iterator &other) const {
-    return &tree == &other.tree && i == other.i;
+    return tree == other.tree && i == other.i;
 }
 
 RBTREE_TEMPL bool RBTREE_CLASS::const_iterator::operator!=(const const_iterator &other) const {
@@ -192,7 +242,7 @@ RBTREE_TEMPL bool RBTREE_CLASS::const_iterator::operator!=(const const_iterator 
 }
 
 RBTREE_TEMPL typename RBTREE_CLASS::const_reference RBTREE_CLASS::const_iterator::operator*() const {
-    return const_reference(tree, tree.ref(i)->value);
+    return const_reference(*tree, tree->ref(i)->value);
 }
 
 }  // namespace imlab

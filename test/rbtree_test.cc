@@ -109,7 +109,7 @@ TEST(RBTree, SwitchingInsertion) {
 }
 
 TEST(RBTree, IrregularInsertion) {
-    RBTreeTest<255> tree;
+    RBTreeTest<1024> tree;
 
     for (auto i : traversal_test) {
         tree.insert<2>({0, i});
@@ -185,6 +185,54 @@ TEST(RBTree, ForwardIterationIrregular) {
     uint8_t i = 1;
     for (auto ref : tree)
         ASSERT_EQ(i++, ref.as<1>().value);
+}
+
+TEST(RBTree, Find) {
+    RBTreeTest<1024> tree;
+    ASSERT_EQ(tree.end(), tree.find({0, 0}));
+
+    for (auto i : traversal_test)
+        ASSERT_TRUE(tree.insert<1>({0, i}, {i}));
+
+    ASSERT_EQ(tree.end(), tree.find({0, 0}));
+    ASSERT_EQ(tree.end(), tree.find({1, 1}));
+    ASSERT_EQ(tree.end(), tree.find({0, 100}));
+
+    for (auto i : traversal_test)
+        ASSERT_EQ(i, (*tree.find({0, i})).as<1>().value);
+}
+
+TEST(RBTree, LowerBound) {
+    RBTreeTest<1024> tree;
+    ASSERT_EQ(tree.end(), tree.lower_bound({0, 0}));
+
+    uint32_t i = 1;
+    while (tree.insert<1>({i, 0}, {i}))
+        i += 5;
+
+    ASSERT_EQ(tree.end(), tree.lower_bound({i, 0}));
+    for (uint32_t j = 1; j < i; j += 5) {
+        EXPECT_EQ(j, (*tree.lower_bound({j - 1, 0})).as<1>().value);
+        EXPECT_EQ(j, (*tree.lower_bound({j, 0})).as<1>().value);
+        if (j + 5 < i)
+            EXPECT_EQ(j + 5, (*tree.lower_bound({j + 1, 0})).as<1>().value);
+    }
+}
+
+TEST(RBTree, UpperBound) {
+    RBTreeTest<1024> tree;
+    ASSERT_EQ(tree.end(), tree.upper_bound({0, 0}));
+
+    uint32_t i = 1;
+    while (tree.insert<1>({i, 0}, {i}))
+        i += 5;
+
+    ASSERT_EQ(tree.end(), tree.upper_bound({i - 5, 0}));
+    for (uint32_t j = 1; j < i; j += 5) {
+        EXPECT_EQ(j, (*tree.upper_bound({j - 1, 0})).as<1>().value);
+        if (j + 5 < i)
+            EXPECT_EQ(j + 5, (*tree.upper_bound({j, 0})).as<1>().value);
+    }
 }
 
 // ---------------------------------------------------------------------------------------------------

@@ -194,10 +194,10 @@ RBTREE_TEMPL class RBTREE_CLASS::const_iterator {
     const_reference operator*() const;
 
  private:
-    const_iterator(const RBTree &tree, node_pointer i)
+    const_iterator(const RBTree *tree, node_pointer i)
         : tree(tree), i(i) {}
 
-    const RBTree &tree;
+    const RBTree *tree;
     node_pointer i;
 };
 

@@ -8,6 +8,15 @@
 #include <utility>
 // ---------------------------------------------------------------------------------------------------
 namespace imlab {
+// ---------------------------------------------------------------------------------------------------
+RBTREE_TEMPL constexpr typename RBTREE_CLASS::Node::Child RBTREE_CLASS::Node::side(node_pointer i) const {
+    assert(left == i || right == i);
+    return left == i ? Left : Right;
+}
+// ---------------------------------------------------------------------------------------------------
+RBTREE_TEMPL constexpr RBTREE_CLASS::RbTree() {
+  static_assert(sizeof(*this) == page_size);
+}
 
 RBTREE_TEMPL typename RBTREE_CLASS::const_iterator RBTREE_CLASS::begin() const {
     auto current = ref(header.root_node);
@@ -39,13 +48,12 @@ RBTREE_TEMPL typename RBTREE_CLASS::const_iterator RBTREE_CLASS::lower_bound(con
             current = ref(current->left);
         }
     }
+
     return result;
 }
 
 RBTREE_TEMPL typename RBTREE_CLASS::const_iterator RBTREE_CLASS::upper_bound(const Key &key) const {
     auto current = ref(header.root_node);
-    if (!current)
-        return end();
 
     auto result = end();
     while (current) {
@@ -75,20 +83,42 @@ RBTREE_TEMPL typename RBTREE_CLASS::const_iterator RBTREE_CLASS::find(const Key 
     return end();
 }
 
+RBTREE_TEMPL template<size_t I> std::enable_if_t<std::is_same_v<void, typename RBTREE_CLASS::template element_t<I>>, bool>
+RBTREE_CLASS::insert(const Key &key) {
+    auto result = insert<Tag<I>>(key);
+    if (result)
+        new (&value_at<Tag<I>>(result.value())) Tag<I>();
+    return result.has_value();
+}
+
+RBTREE_TEMPL template<size_t I> bool RBTREE_CLASS::insert(const Key &key, const element_t<I> &value) {
+    auto result = insert<Value<I>>(key);
+    if (result)
+        new (&value_at<Value<I>>(result.value())) Value<I>(value);
+    return result.has_value();
+}
+
+RBTREE_TEMPL template<size_t I> bool RBTREE_CLASS::insert(const Key &key, element_t<I> &&value) {
+    auto result = insert<Value<I>>(key);
+    if (result)
+        new (&value_at<Value<I>>(result.value())) Value<I>(std::forward<element_t<I>>(value));
+    return result.has_value();
+}
+
 RBTREE_TEMPL template<typename T> std::optional<typename RBTREE_CLASS::pointer>
 RBTREE_CLASS::insert(const Key &key) {
-    if (sizeof(T) + sizeof(RBNode) > header.free_space)
+    if (sizeof(T) + sizeof(Node) > header.free_space)
        return {};
 
     // find parent
-    NodeRef parent = ref(header.root_node);
-    typename RBNode::Child child;
+    auto parent = ref(header.root_node);
+    typename Node::Child child;
     if (parent) {
         while (true) {
             if (comp(parent->key, key)) {
-                child = RBNode::Right;
+                child = Node::Right;
             } else if (comp(key, parent->key)) {
-                child = RBNode::Left;
+                child = Node::Left;
             } else {
                 throw;  // be-tree should never duplicate keys
             }
@@ -103,7 +133,7 @@ RBTREE_CLASS::insert(const Key &key) {
 
     // add new node
     pointer i = reserve_value<T>();
-    NodeRef node = emplace_node(key, i, parent);
+    auto node = emplace_node(key, i, parent);
 
     // https://de.wikipedia.org/wiki/Rot-Schwarz-Baum#Einf%C3%BCgen
     if (parent) {
@@ -114,18 +144,18 @@ RBTREE_CLASS::insert(const Key &key) {
             child = parent->side(node);
 
             // case 1: parent is black -> done
-            if (parent->color == RBNode::Black)
+            if (parent->color == Node::Black)
                 break;
 
-            NodeRef grandp = ref(parent->parent);
-            NodeRef uncle = ref(grandp->children[-grandp->side(parent)]);
+            auto grandp = ref(parent->parent);
+            auto uncle = ref(grandp->children[-grandp->side(parent)]);
 
             // case 2: parent & uncle are red
-            if (uncle && uncle->color == RBNode::Red) {
+            if (uncle && uncle->color == Node::Red) {
                 // make them black instead and continue with grandparent
-                parent->color = uncle->color = RBNode::Black;
+                parent->color = uncle->color = Node::Black;
 
-                grandp->color = RBNode::Red;
+                grandp->color = Node::Red;
                 node = grandp;
                 continue;
             }
@@ -140,24 +170,24 @@ RBTREE_CLASS::insert(const Key &key) {
             // case 4: no / black uncle & stright line from grandparent to node
             // rotate around grandparent to balance out
             rotate(grandp, -child);
-            parent->color = RBNode::Black;
-            grandp->color = RBNode::Red;
+            parent->color = Node::Black;
+            grandp->color = Node::Red;
         } while ((parent = ref(node->parent)));
     }
 
     // iteration ended with new root node (or no iteration happened)
     if (!parent) {
         header.root_node = node;
-        node->color = RBNode::Black;
+        node->color = Node::Black;
     }
 
     return i;
 }
 
-RBTREE_TEMPL void RBTREE_CLASS::rotate(NodeRef node, typename RBNode::Child child) {
-    NodeRef parent = ref(node->parent);
-    NodeRef other = ref(node->children[-child]);
-    NodeRef m = ref(other->children[child]);
+RBTREE_TEMPL void RBTREE_CLASS::rotate(node_ref node, typename Node::Child child) {
+    auto parent = ref(node->parent);
+    auto other = ref(node->children[-child]);
+    auto m = ref(other->children[child]);
 
     //     P            P
     //     |            |
@@ -185,56 +215,82 @@ RBTREE_TEMPL void RBTREE_CLASS::rotate(NodeRef node, typename RBNode::Child chil
     if (m)
         m->parent = node;
 }
+
+RBTREE_TEMPL inline typename RBTREE_CLASS::node_ref RBTREE_CLASS::ref(node_pointer i) {
+    return { i , i ? reinterpret_cast<Node*>(data) + (i - 1) : nullptr };
+}
+
+RBTREE_TEMPL inline typename RBTREE_CLASS::const_node_ref RBTREE_CLASS::ref(node_pointer i) const {
+    return { i , i ? reinterpret_cast<const Node*>(data) + (i - 1) : nullptr };
+}
+
+RBTREE_TEMPL template<typename... Args> typename RBTREE_CLASS::node_ref RBTREE_CLASS::emplace_node(Args &&...a) {
+    node_pointer i = header.node_count++;
+    header.free_space -= sizeof(Node);
+
+    auto result = ref(i + 1);
+    new (result.node) Node(a...);
+
+    return ref(i + 1);
+}
+
+RBTREE_TEMPL template<typename T> inline T &RBTREE_CLASS::value_at(pointer i) {
+    return *(reinterpret_cast<T*>(data + i));
+}
+
+RBTREE_TEMPL template<typename T> inline const T &RBTREE_CLASS::value_at(pointer i) const {
+    return *(reinterpret_cast<const T*>(data + i));
+}
+
+RBTREE_TEMPL template<typename T> typename RBTREE_CLASS::pointer RBTREE_CLASS::reserve_value() {
+    pointer i = header.data_start - sizeof(T);
+    header.free_space -= sizeof(T);
+    return header.data_start = i;
+}
 // ---------------------------------------------------------------------------------------------------
+RBTREE_TEMPL const Key &RBTREE_CLASS::const_reference::key() const {
+    return tree->ref(i)->key;
+}
+
 RBTREE_TEMPL typename RBTREE_CLASS::tag RBTREE_CLASS::const_reference::type() const {
-    return tree.value_at<tag>(i);
+    return tree->value_at<tag>(tree->ref(i)->value);
 }
 
 RBTREE_TEMPL template<size_t I> const typename RBTREE_CLASS::template element_t<I> &RBTREE_CLASS::const_reference::as() const {
     assert(type() == I);
-    return tree.value_at<RBValue<I>>(i).value;
+    return tree->value_at<Value<I>>(tree->ref(i)->value).value;
 }
 // ---------------------------------------------------------------------------------------------------
 RBTREE_TEMPL typename RBTREE_CLASS::const_iterator &RBTREE_CLASS::const_iterator::operator++() {
-    auto current = tree->ref(i);
+    auto current = tree->ref(ref.i);
 
     // right child available: take path, then go all the way left to find smallest
     if (current->right) {
         current = tree->ref(current->right);
         do {
-            i = current;
+            ref.i = current;
         } while ((current = tree->ref(current->left)));
     } else {  // look at parent otherwise
         auto parent = tree->ref(current->parent);
         // left side of parent: parent is next, continue with parent otherwise
-        while (parent && parent->side(current) == RBNode::Right) {
+        while (parent && parent->side(current) == Node::Right) {
             current = parent;
             parent = tree->ref(current->parent);
         }
-        i = parent;
+        ref.i = parent;
     }
 
     return *this;
 }
 
 RBTREE_TEMPL typename RBTREE_CLASS::const_iterator RBTREE_CLASS::const_iterator::operator++(int) {
-    auto result = const_iterator(tree, i);
+    auto result = const_iterator(tree, ref.i);
     ++this;
     return result;
 }
 
-RBTREE_TEMPL typename RBTREE_CLASS::const_iterator &RBTREE_CLASS::const_iterator::operator--() {
-    // TODO
-}
-
-RBTREE_TEMPL typename RBTREE_CLASS::const_iterator RBTREE_CLASS::const_iterator::operator--(int) {
-    auto result = iterator(tree, i);
-    --this;
-    return result;
-}
-
 RBTREE_TEMPL bool RBTREE_CLASS::const_iterator::operator==(const const_iterator &other) const {
-    return tree == other.tree && i == other.i;
+    return tree == other.tree && ref.i == other.ref.i;
 }
 
 RBTREE_TEMPL bool RBTREE_CLASS::const_iterator::operator!=(const const_iterator &other) const {
@@ -242,7 +298,11 @@ RBTREE_TEMPL bool RBTREE_CLASS::const_iterator::operator!=(const const_iterator 
 }
 
 RBTREE_TEMPL typename RBTREE_CLASS::const_reference RBTREE_CLASS::const_iterator::operator*() const {
-    return const_reference(*tree, tree->ref(i)->value);
+    return ref;
+}
+
+RBTREE_TEMPL const typename RBTREE_CLASS::const_reference *RBTREE_CLASS::const_iterator::operator->() const {
+    return &ref;
 }
 
 }  // namespace imlab

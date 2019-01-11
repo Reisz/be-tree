@@ -13,7 +13,7 @@ namespace imlab {
 #define RBTREE_TEMPL \
     template<typename Key, size_t page_size, typename Compare, typename... Ts>
 #define RBTREE_CLASS \
-    RBTree<Key, page_size, Compare, Ts...>
+    RbTree<Key, page_size, Compare, Ts...>
 
 template<uint64_t max> struct uint_fit {
     using type =
@@ -25,7 +25,15 @@ template<uint64_t max> using uint_fit_t = typename uint_fit<max>::type;
 
 // In-place RB-Tree with variadic
 template<typename Key, size_t page_size, typename Compare = std::less<Key>, typename... Ts>
-class RBTree {
+class RbTree {
+    // bookkeeping header for the tree, subratct from final data size
+    struct Header;
+    // an inner node in the rb-tree, doubles as slot entry for values
+    struct Node;
+    // representation of values in the tree, grow from the end of the data area
+    template<size_t I> struct Tag;
+    template<size_t I> struct Value;
+
     // use the smallest uint that can address the whole data array
     using pointer = uint_fit_t<page_size>;
     using node_pointer = pointer;  // TODO maybe make smaller
@@ -33,60 +41,13 @@ class RBTree {
     using tag = uint_fit_t<sizeof...(Ts)>;
     // get element type by index
     template<size_t I> using element_t = typename std::tuple_element<I, std::tuple<Ts...>>::type;
-    // bookkeeping header for the tree, subratct from final data size
-    struct Header;
     static constexpr size_t kDataSize = page_size - sizeof(Header);
-
-
-    // an inner node in the rb-tree, doubles as slot entry for values
-    struct RBNode {
-        Key key;
-        pointer value;
-        node_pointer parent;
-
-        union {
-            struct {
-                node_pointer left = 0, right = 0;
-            };
-            node_pointer children[2];
-        };
-        enum Child : uint8_t { Left, Right };
-        // assuming i->parent == *this
-        constexpr Child side(node_pointer i) const {
-            return left == i ? Left : Right;
-        }
-
-        friend constexpr Child operator-(const Child &c) {
-            return typename RBNode::Child(1 - c);
-        }
-
-        enum Color : uint8_t { Red, Black } color = Red;
-
-        constexpr RBNode(const Key &key, pointer value, node_pointer parent)
-            : key(key), value(value), parent(parent) {}
-    };
-
-    // representation of values in the tree, grow from the end of the data area
-    template<size_t I> struct RBTag {
-        const tag type = I;
-    };
-
-    template<size_t I> struct RBValue : RBTag<I> {
-        element_t<I> value;
-
-        explicit constexpr RBValue(const element_t<I> &value)
-            : value(value)  {}
-        explicit constexpr RBValue(element_t<I> &&value)
-            : value(value)  {}
-    };
 
  public:
     class const_reference;
     class const_iterator;
 
-    constexpr RBTree() {
-       static_assert(sizeof(*this) == page_size);
-    }
+    constexpr RbTree();
 
     const_iterator begin() const;
     const_iterator end() const;
@@ -99,78 +60,29 @@ class RBTree {
     void erase(const_iterator start, const_iterator end);
 
     // three insert variants (void, copy, move)
-    template<size_t I> std::enable_if_t<std::is_same_v<void, element_t<I>>, bool> insert(const Key &key) {
-        auto result = insert<RBTag<I>>(key);
-        if (result)
-            new (&value_at<RBTag<I>>(result.value())) RBTag<I>();
-        return result.has_value();
-    }
-    template<size_t I> bool insert(const Key &key, const element_t<I> &value) {
-        auto result = insert<RBValue<I>>(key);
-        if (result)
-            new (&value_at<RBValue<I>>(result.value())) RBValue<I>(value);
-        return result.has_value();
-    }
-    template<size_t I> bool insert(const Key &key, element_t<I> &&value) {
-        auto result = insert<RBValue<I>>(key);
-        if (result)
-            new (&value_at<RBValue<I>>(result.value())) RBValue<I>(std::forward<element_t<I>>(value));
-        return result.has_value();
-    }
-
+    template<size_t I> std::enable_if_t<std::is_same_v<void, element_t<I>>, bool> insert(const Key &key);
+    template<size_t I> bool insert(const Key &key, const element_t<I> &value);
+    template<size_t I> bool insert(const Key &key, element_t<I> &&value);
 
     // testing interface, not linked in prod code
-    void check_rb_invariants();
+    void check_rb_invariants() const;
 
  private:
     // For use in functions working with nodes
-    struct NodeRef {
-        node_pointer i;
-        RBNode *node;
+    struct node_ref;
+    struct const_node_ref;
 
-        operator node_pointer() { return i; }
-        RBNode *operator->() { return node; }
-        RBNode &operator*() { return *node; }
-    };
-    struct const_noderef {
-        node_pointer i;
-        const RBNode *node;
+    inline node_ref ref(node_pointer i);
+    inline const_node_ref ref(node_pointer i) const;
+    template<typename... Args> node_ref emplace_node(Args &&...a);
 
-        operator node_pointer() { return i; }
-        const RBNode *operator->() { return node; }
-        const RBNode &operator*() { return *node; }
-    };
-    inline NodeRef ref(node_pointer i) {
-        return { i , i ? reinterpret_cast<RBNode*>(data) + (i - 1) : nullptr };
-    }
-    inline const_noderef ref(node_pointer i) const {
-        return { i , i ? reinterpret_cast<const RBNode*>(data) + (i - 1) : nullptr };
-    }
-    template<typename... Args> inline NodeRef emplace_node(Args &&...a) {
-        node_pointer i = header.node_count++;
-        header.free_space -= sizeof(RBNode);
-
-        NodeRef result = ref(i + 1);
-        new (result.node) RBNode(a...);
-
-        return ref(i + 1);
-    }
-
-    template<typename T> inline T &value_at(pointer i) {
-        return *(reinterpret_cast<T*>(data + i));
-    }
-    template<typename T> inline const T &value_at(pointer i) const {
-        return *(reinterpret_cast<const T*>(data + i));
-    }
-    template<typename Val> inline pointer reserve_value() {
-        pointer i = header.data_start - sizeof(Val);
-        header.free_space -= sizeof(Val);
-        return header.data_start = i;
-    }
+    template<typename T> inline T &value_at(pointer i);
+    template<typename T> inline const T &value_at(pointer i) const;
+    template<typename T> pointer reserve_value();
 
     // helper functions
     template<typename T> std::optional<pointer> insert(const Key &key);
-    void rotate(NodeRef node, typename RBNode::Child child);
+    void rotate(node_ref node, typename Node::Child child);
 
     static constexpr Compare comp{};
 
@@ -182,37 +94,94 @@ class RBTree {
     std::byte data[kDataSize];
 };
 
+RBTREE_TEMPL struct RBTREE_CLASS::Node {
+    Key key;
+    pointer value;
+    node_pointer parent;
+
+    union {
+        struct {
+            node_pointer left = 0, right = 0;
+        };
+        node_pointer children[2];
+    };
+
+    enum Child : uint8_t { Left, Right };
+    constexpr Child side(node_pointer i) const;
+    friend constexpr Child operator-(const Child &c) {
+        return typename RBTREE_CLASS::Node::Child(1 - c);
+    }
+
+    enum Color : uint8_t { Red, Black } color = Red;
+
+    constexpr Node(const Key &key, pointer value, node_pointer parent)
+        : key(key), value(value), parent(parent) {}
+};
+
+
+RBTREE_TEMPL template<size_t I> struct RBTREE_CLASS::Tag {
+    const tag type = I;
+};
+
+RBTREE_TEMPL template<size_t I> struct RBTREE_CLASS::Value : Tag<I> {
+    element_t<I> value;
+
+    explicit constexpr Value(const element_t<I> &value)
+        : value(value)  {}
+    explicit constexpr Value(element_t<I> &&value)
+        : value(value)  {}
+};
+
 RBTREE_TEMPL class RBTREE_CLASS::const_iterator {
-    friend class RBTree;
+    friend class RbTree;
  public:
     const_iterator &operator++();
     const_iterator operator++(int);
-    const_iterator &operator--();
-    const_iterator operator--(int);
     bool operator==(const const_iterator &other) const;
     bool operator!=(const const_iterator &other) const;
     const_reference operator*() const;
+    const const_reference *operator->() const;
 
  private:
-    const_iterator(const RBTree *tree, node_pointer i)
-        : tree(tree), i(i) {}
+    const_iterator(const RbTree *tree, node_pointer i)
+        : tree(tree), ref(tree, i) {}
 
-    const RBTree *tree;
-    node_pointer i;
+    const RbTree *tree;
+    const_reference ref;
 };
 
 RBTREE_TEMPL class RBTREE_CLASS::const_reference {
     friend class const_iterator;
  public:
+    const Key &key() const;
+
     tag type() const;
     template<size_t I> const element_t<I> &as() const;
 
  private:
-    const_reference(const RBTree &tree, pointer i)
+    const_reference(const RbTree *tree, node_pointer i)
         : tree(tree), i(i) {}
 
-    const RBTree &tree;
-    pointer i;
+    const RbTree *tree;
+    node_pointer i;
+};
+
+RBTREE_TEMPL struct RBTREE_CLASS::node_ref {
+    node_pointer i;
+    Node *node;
+
+    operator node_pointer() { return i; }
+    Node *operator->() { return node; }
+    Node &operator*() { return *node; }
+};
+
+RBTREE_TEMPL struct RBTREE_CLASS::const_node_ref {
+    node_pointer i;
+    const Node *node;
+
+    operator node_pointer() { return i; }
+    const Node *operator->() { return node; }
+    const Node &operator*() { return *node; }
 };
 
 }  // namespace imlab

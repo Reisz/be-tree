@@ -29,7 +29,7 @@ class BeTree : Segment<page_size> {
 
     struct MessageKey;
     typedef T (*Upsert) (T &&);
-    using MessageMap = RBTree<MessageKey, epsilon, std::less<MessageKey>,
+    using MessageMap = RbTree<MessageKey, epsilon, std::less<MessageKey>,
         T, T, Upsert, void>;
     enum class Msg : uint8_t {
         Insert, InsertOrAssign, Upsert, Erase

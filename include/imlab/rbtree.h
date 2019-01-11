@@ -80,54 +80,23 @@ class RBTree {
             : value(value)  {}
     };
 
-
-    class reference {
-     public:
-        tag type() const;
-        template<size_t I> element_t<I> as();
-
-     private:
-        reference(const RBTree &tree, pointer i)
-            : tree(tree), i(i) {}
-
-        const RBTree &tree;
-        pointer i;
-    };
-
-
-    class iterator {
-     public:
-        iterator &operator++();
-        iterator operator++(int);
-        iterator &operator--();
-        iterator operator--(int);
-        bool operator==(const iterator &other) const;
-        bool operator!=(const iterator &other) const;
-        reference operator*() const;
-
-     private:
-        iterator(const RBTree &tree, node_pointer i)
-            : tree(tree), i(i) {}
-
-        const RBTree &tree;
-        node_pointer i;
-    };
-
-
  public:
+    class const_reference;
+    class const_iterator;
+
     constexpr RBTree() {
        static_assert(sizeof(*this) == page_size);
     }
 
-    iterator begin();
-    iterator end();
+    const_iterator begin() const;
+    const_iterator end() const;
 
-    iterator lower_bound(const Key &key);
-    iterator upper_bound(const Key &key);
-    iterator find(const Key &key);
+    const_iterator lower_bound(const Key &key) const;
+    const_iterator upper_bound(const Key &key) const;
+    const_iterator find(const Key &key) const;
 
-    void erase(iterator pos);
-    void erase(iterator start, iterator end);
+    void erase(const_iterator pos);
+    void erase(const_iterator start, const_iterator end);
 
     // three insert variants (void, copy, move)
     template<size_t I> std::enable_if_t<std::is_same_v<void, element_t<I>>, bool> insert(const Key &key) {
@@ -163,8 +132,19 @@ class RBTree {
         RBNode *operator->() { return node; }
         RBNode &operator*() { return *node; }
     };
+    struct const_noderef {
+        node_pointer i;
+        const RBNode *node;
+
+        operator node_pointer() { return i; }
+        const RBNode *operator->() { return node; }
+        const RBNode &operator*() { return *node; }
+    };
     inline NodeRef ref(node_pointer i) {
         return { i , i ? reinterpret_cast<RBNode*>(data) + (i - 1) : nullptr };
+    }
+    inline const_noderef ref(node_pointer i) const {
+        return { i , i ? reinterpret_cast<const RBNode*>(data) + (i - 1) : nullptr };
     }
     template<typename... Args> inline NodeRef emplace_node(Args &&...a) {
         node_pointer i = header.node_count++;
@@ -178,6 +158,9 @@ class RBTree {
 
     template<typename T> inline T &value_at(pointer i) {
         return *(reinterpret_cast<T*>(data + i));
+    }
+    template<typename T> inline const T &value_at(pointer i) const {
+        return *(reinterpret_cast<const T*>(data + i));
     }
     template<typename Val> inline pointer reserve_value() {
         pointer i = header.data_start - sizeof(Val);
@@ -197,6 +180,39 @@ class RBTree {
         pointer data_start = kDataSize, free_space = kDataSize;
     } header;
     std::byte data[kDataSize];
+};
+
+RBTREE_TEMPL class RBTREE_CLASS::const_iterator {
+    friend class RBTree;
+ public:
+    const_iterator &operator++();
+    const_iterator operator++(int);
+    const_iterator &operator--();
+    const_iterator operator--(int);
+    bool operator==(const const_iterator &other) const;
+    bool operator!=(const const_iterator &other) const;
+    const_reference operator*() const;
+
+ private:
+    const_iterator(const RBTree &tree, node_pointer i)
+        : tree(tree), i(i) {}
+
+    const RBTree &tree;
+    node_pointer i;
+};
+
+RBTREE_TEMPL class RBTREE_CLASS::const_reference {
+    friend class const_iterator;
+ public:
+    tag type() const;
+    template<size_t I> const element_t<I> &as() const;
+
+ private:
+    const_reference(const RBTree &tree, pointer i)
+        : tree(tree), i(i) {}
+
+    const RBTree &tree;
+    pointer i;
 };
 
 }  // namespace imlab

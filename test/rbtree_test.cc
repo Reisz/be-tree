@@ -71,6 +71,11 @@ using Delete = void;
 template<size_t page_size> using RBTreeTest = imlab::RBTree<MessageKey<uint64_t>, page_size, std::less<MessageKey<uint64_t>>,
     Insert<uint64_t>, Update<uint64_t>, Delete>;
 
+// insertion order results in irregular tree for traversal testing
+constexpr uint8_t traversal_test[] = {
+    1, 10, 8, 3, 6, 4, 7, 11, 9, 17, 2, 5, 15, 14, 13, 16, 12
+};
+
 TEST(RBTree, Sizes) {
     ASSERT_EQ(sizeof(RBTreeTest<255>), 255);
     ASSERT_EQ(sizeof(RBTreeTest<(1ull << 16) - 2>), (1ull << 16) - 2);
@@ -102,6 +107,86 @@ TEST(RBTree, SwitchingInsertion) {
     while (tree.insert<2>({i++, k ^= 1}))
         tree.check_rb_invariants();
 }
+
+TEST(RBTree, IrregularInsertion) {
+    RBTreeTest<255> tree;
+
+    for (auto i : traversal_test) {
+        tree.insert<2>({0, i});
+        tree.check_rb_invariants();
+    }
+}
+
+TEST(RBTree, EmptyTreeIterators) {
+    RBTreeTest<255> tree;
+    ASSERT_EQ(tree.end(), tree.begin());
+}
+
+TEST(RBTree, NonEmptyTreeIterators) {
+    RBTreeTest<255> tree;
+    tree.insert<2>({0, 0});
+    ASSERT_NE(tree.end(), tree.begin());
+}
+
+TEST(RBTree, IteratorBegin) {
+    RBTreeTest<255> tree;
+    tree.insert<2>({0, 0});
+    tree.insert<2>({0, 1});
+
+    ASSERT_EQ(2, (*tree.begin()).type());
+}
+
+TEST(RBTree, ForwardIterationLinear) {
+    RBTreeTest<255> tree;
+
+    uint32_t i = 0;
+    while (tree.insert<1>({i, 0}, {i}))
+        ++i;
+
+    i = 0;
+    for (auto ref : tree)
+        ASSERT_EQ(i++, ref.as<1>().value);
+}
+
+TEST(RBTree, ForwardIterationLinearReverse) {
+    RBTreeTest<255> tree;
+
+    uint32_t i = std::numeric_limits<uint32_t>::max();
+    while (tree.insert<1>({i, 0}, {i}))
+        --i;
+
+    for (auto ref : tree)
+        ASSERT_EQ(++i, ref.as<1>().value);
+}
+
+TEST(RBTree, ForwardIterationSwitching) {
+    RBTreeTest<255> tree;
+
+    uint32_t i = 0;
+    uint32_t k = 1;
+    while (tree.insert<1>({i, k ^= 1}, {i}))
+        ++i;
+
+    i = 0;
+    for (auto ref : tree) {
+        if (ref.as<1>().value == 1)
+            i = 1;
+        ASSERT_EQ(i, ref.as<1>().value);
+        i += 2;
+    }
+}
+
+TEST(RBTree, ForwardIterationIrregular) {
+    RBTreeTest<1024> tree;
+
+    for (auto i : traversal_test)
+        ASSERT_TRUE(tree.insert<1>({0, i}, {i}));
+
+    uint8_t i = 1;
+    for (auto ref : tree)
+        ASSERT_EQ(i++, ref.as<1>().value);
+}
+
 // ---------------------------------------------------------------------------------------------------
 }  // namespace
 // ---------------------------------------------------------------------------------------------------

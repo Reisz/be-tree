@@ -135,7 +135,65 @@ RBTREE_TEMPL void RBTREE_CLASS::rotate(NodeRef node, typename RBNode::Child chil
     if (m)
         m->parent = node;
 }
+// ---------------------------------------------------------------------------------------------------
+RBTREE_TEMPL typename RBTREE_CLASS::tag RBTREE_CLASS::const_reference::type() const {
+    return tree.value_at<tag>(i);
+}
+
+RBTREE_TEMPL template<size_t I> const typename RBTREE_CLASS::template element_t<I> &RBTREE_CLASS::const_reference::as() const {
+    assert(type() == I);
+    return tree.value_at<RBValue<I>>(i).value;
+}
+// ---------------------------------------------------------------------------------------------------
+RBTREE_TEMPL typename RBTREE_CLASS::const_iterator &RBTREE_CLASS::const_iterator::operator++() {
+    auto current = tree.ref(i);
+
+    // right child available: take path, then go all the way left to find smallest
+    if (current->right) {
+        current = tree.ref(current->right);
+        do {
+            i = current;
+        } while ((current = tree.ref(current->left)));
+    } else {  // look at parent otherwise
+        auto parent = tree.ref(current->parent);
+        // left side of parent: parent is next, continue with parent otherwise
+        while (parent && parent->side(current) == RBNode::Right) {
+            current = parent;
+            parent = tree.ref(current->parent);
+        }
+        i = parent;
     }
+
+    return *this;
+}
+
+RBTREE_TEMPL typename RBTREE_CLASS::const_iterator RBTREE_CLASS::const_iterator::operator++(int) {
+    auto result = const_iterator(tree, i);
+    ++this;
+    return result;
+}
+
+RBTREE_TEMPL typename RBTREE_CLASS::const_iterator &RBTREE_CLASS::const_iterator::operator--() {
+    // TODO
+}
+
+RBTREE_TEMPL typename RBTREE_CLASS::const_iterator RBTREE_CLASS::const_iterator::operator--(int) {
+    auto result = iterator(tree, i);
+    --this;
+    return result;
+}
+
+RBTREE_TEMPL bool RBTREE_CLASS::const_iterator::operator==(const const_iterator &other) const {
+    return &tree == &other.tree && i == other.i;
+}
+
+RBTREE_TEMPL bool RBTREE_CLASS::const_iterator::operator!=(const const_iterator &other) const {
+    return !(*this == other);
+}
+
+RBTREE_TEMPL typename RBTREE_CLASS::const_reference RBTREE_CLASS::const_iterator::operator*() const {
+    return const_reference(tree, tree.ref(i)->value);
+}
 
 }  // namespace imlab
 // ---------------------------------------------------------------------------------------------------

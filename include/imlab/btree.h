@@ -29,8 +29,11 @@ class BTree : Segment<page_size> {
     class InnerNode;
     class LeafNode;
 
+    // TODO using value_type = std::pair<const Key, T> ?
     using reference = T&;
     // using const_reference = const T&;
+    using pointer = T*;
+    // using const_pointer = const T*;
     class iterator;
     // class const_iterator;
 
@@ -159,8 +162,8 @@ IMLAB_BTREE_TEMPL class IMLAB_BTREE_CLASS::iterator {
     iterator operator++(int);
     bool operator==(const iterator &other) const;
     bool operator!=(const iterator &other) const;
-    reference operator*() const;
-    T *operator->() const;
+    reference operator*();
+    pointer operator->();
 
  private:
     iterator(typename BufferManager<page_size>::ExclusiveFix &&fix, uint32_t i)

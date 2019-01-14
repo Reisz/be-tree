@@ -336,11 +336,19 @@ IMLAB_BTREE_TEMPL uint64_t IMLAB_BTREE_CLASS::capacity() const {
     return leaf_count * LeafNode::kCapacity;
 }
 // ---------------------------------------------------------------------------------------------------
+IMLAB_BTREE_TEMPL typename IMLAB_BTREE_CLASS::reference IMLAB_BTREE_CLASS::iterator::operator*() {
+    return fix.template as<LeafNode>.values[i];
+}
+
+IMLAB_BTREE_TEMPL typename IMLAB_BTREE_CLASS::pointer IMLAB_BTREE_CLASS::iterator::operator->() {
+    return &fix.template as<LeafNode>.values[i];
+}
+// ---------------------------------------------------------------------------------------------------
 IMLAB_BTREE_TEMPL void IMLAB_BTREE_CLASS::CoupledFixes::advance(typename BufferManager<page_size>::ExclusiveFix next) {
     prev = std::move(fix);
     fix = std::move(next);
 }
-
+// ---------------------------------------------------------------------------------------------------
 }  // namespace imlab
 // ---------------------------------------------------------------------------------------------------
 #endif  // SRC_BTREE_HPP_

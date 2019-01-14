@@ -176,6 +176,9 @@ IMLAB_BTREE_TEMPL Key IMLAB_BTREE_CLASS::LeafNode::split(LeafNode &other, uint64
     return other.keys[0];
 }
 // ---------------------------------------------------------------------------------------------------
+IMLAB_BTREE_TEMPL typename IMLAB_BTREE_CLASS::iterator IMLAB_BTREE_CLASS::end() {
+    return iterator({}, 0);
+}
 
 IMLAB_BTREE_TEMPL void IMLAB_BTREE_CLASS::insert(const Key &key, const T &value) {
     T *i = insert_internal(key);
@@ -336,6 +339,14 @@ IMLAB_BTREE_TEMPL uint64_t IMLAB_BTREE_CLASS::capacity() const {
     return leaf_count * LeafNode::kCapacity;
 }
 // ---------------------------------------------------------------------------------------------------
+IMLAB_BTREE_TEMPL bool IMLAB_BTREE_CLASS::iterator::operator==(const iterator &other) const {
+    return fix.data() == other.fix.data() && i == other.i;
+}
+
+IMLAB_BTREE_TEMPL bool IMLAB_BTREE_CLASS::iterator::operator!=(const iterator &other) const {
+    return !(*this == other);
+}
+
 IMLAB_BTREE_TEMPL typename IMLAB_BTREE_CLASS::reference IMLAB_BTREE_CLASS::iterator::operator*() {
     return fix.template as<LeafNode>.values[i];
 }

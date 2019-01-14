@@ -26,14 +26,6 @@ template<uint64_t max> using uint_fit_t = typename uint_fit<max>::type;
 // In-place RB-Tree with variadic
 template<typename Key, size_t page_size, typename Compare = std::less<Key>, typename... Ts>
 class RbTree {
-    // bookkeeping header for the tree, subratct from final data size
-    struct Header;
-    // an inner node in the rb-tree, doubles as slot entry for values
-    struct Node;
-    // representation of values in the tree, grow from the end of the data area
-    template<size_t I> struct Tag;
-    template<size_t I> struct Value;
-
     // use the smallest uint that can address the whole data array
     using pointer = uint_fit_t<page_size>;
     using node_pointer = pointer;  // TODO maybe make smaller
@@ -41,6 +33,28 @@ class RbTree {
     using tag = uint_fit_t<sizeof...(Ts)>;
     // get element type by index
     template<size_t I> using element_t = typename std::tuple_element<I, std::tuple<Ts...>>::type;
+
+    // bookkeeping header for the tree, subratct from final data size
+    struct Header;
+    // an inner node in the rb-tree, doubles as slot entry for values
+    struct Node;
+    // representation of values in the tree, grow from the end of the data area
+    struct Tag;
+    template<size_t I, typename T> struct Container;
+    // template<size_t I> struct Value;
+    template<size_t I> using Value = Container<I, element_t<I>>;
+
+    // construct a static table of value sizes for deletion
+    template <size_t N, std::size_t... I>
+    static constexpr std::array<int, N> get_sizes_impl(std::index_sequence<I...>) {
+        return {sizeof(Value<I>)...};
+    }
+    template <size_t N, typename Indices = std::make_index_sequence<N>>
+    static constexpr std::array<int, N> get_sizes() {
+        return get_sizes_impl<N>(Indices{});
+    }
+    static constexpr auto sizes = get_sizes<sizeof...(Ts)>();
+
     static constexpr size_t kDataSize = page_size - sizeof(Header);
 
  public:
@@ -56,6 +70,8 @@ class RbTree {
     const_iterator upper_bound(const Key &key) const;
     const_iterator find(const Key &key) const;
 
+    size_t size() const;
+
     void erase(const_iterator pos);
     void erase(const_iterator start, const_iterator end);
 
@@ -63,6 +79,7 @@ class RbTree {
     template<size_t I> std::enable_if_t<std::is_same_v<void, element_t<I>>, bool> insert(const Key &key);
     template<size_t I> bool insert(const Key &key, const element_t<I> &value);
     template<size_t I> bool insert(const Key &key, element_t<I> &&value);
+
 
     // testing interface, not linked in prod code
     void check_rb_invariants() const;
@@ -75,10 +92,13 @@ class RbTree {
     inline node_ref ref(node_pointer i);
     inline const_node_ref ref(node_pointer i) const;
     template<typename... Args> node_ref emplace_node(Args &&...a);
+    void mark_for_deletion(node_ref node);
+    void compress();
 
     template<typename T> inline T &value_at(pointer i);
     template<typename T> inline const T &value_at(pointer i) const;
     template<typename T> pointer reserve_value();
+    size_t sizeof_value(pointer i) const;
 
     // helper functions
     template<typename T> std::optional<pointer> insert(const Key &key);
@@ -88,7 +108,7 @@ class RbTree {
 
     // member variables
     struct Header {
-        node_pointer root_node = 0, node_count = 0;
+        node_pointer root_node = 0, node_count = 0, deleted = 0;
         pointer data_start = kDataSize, free_space = kDataSize;
     } header;
     std::byte data[kDataSize];
@@ -112,28 +132,32 @@ RBTREE_TEMPL struct RBTREE_CLASS::Node {
         return typename RBTREE_CLASS::Node::Child(1 - c);
     }
 
-    enum Color : uint8_t { Red, Black } color = Red;
+    enum Color : uint8_t { Red, Black, Deleted } color = Red;
 
     constexpr Node(const Key &key, pointer value, node_pointer parent)
         : key(key), value(value), parent(parent) {}
 };
 
 
-RBTREE_TEMPL template<size_t I> struct RBTREE_CLASS::Tag {
-    const tag type = I;
+RBTREE_TEMPL struct RBTREE_CLASS::Tag {
+    const tag type;
+    constexpr Tag(size_t i) : type(i) {}
 };
 
-RBTREE_TEMPL template<size_t I> struct RBTREE_CLASS::Value : Tag<I> {
-    element_t<I> value;
+RBTREE_TEMPL template<size_t I, typename T> struct RBTREE_CLASS::Container : Tag {
+    T value;
 
-    explicit constexpr Value(const element_t<I> &value)
-        : value(value)  {}
-    explicit constexpr Value(element_t<I> &&value)
-        : value(value)  {}
+    constexpr Container(const T& value) : Tag(I), value(value) {}
+    constexpr Container(T&& value) : Tag(I), value(value) {}
+};
+
+RBTREE_TEMPL template<size_t I> struct RBTREE_CLASS::Container<I, void> : Tag {
+    constexpr Container() : Tag(I) {}
 };
 
 RBTREE_TEMPL class RBTREE_CLASS::const_iterator {
     friend class RbTree;
+
  public:
     const_iterator &operator++();
     const_iterator operator++(int);
@@ -152,6 +176,8 @@ RBTREE_TEMPL class RBTREE_CLASS::const_iterator {
 
 RBTREE_TEMPL class RBTREE_CLASS::const_reference {
     friend class const_iterator;
+    friend class RbTree;
+
  public:
     const Key &key() const;
 

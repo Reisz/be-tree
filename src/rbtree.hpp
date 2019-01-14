@@ -6,6 +6,7 @@
 // ---------------------------------------------------------------------------------------------------
 #include "imlab/rbtree.h"
 #include <utility>
+#include <cstring>
 // ---------------------------------------------------------------------------------------------------
 namespace imlab {
 // ---------------------------------------------------------------------------------------------------
@@ -83,16 +84,65 @@ RBTREE_TEMPL typename RBTREE_CLASS::const_iterator RBTREE_CLASS::find(const Key 
     return end();
 }
 
+RBTREE_TEMPL size_t RBTREE_CLASS::size() const {
+    return header.node_count - header.deleted;
+}
+
 RBTREE_TEMPL void RBTREE_CLASS::erase(const_iterator it) {
-    auto node = ref(it.i);
+    assert(it.tree == this);
+    auto node = ref(it.ref.i);
 
-    auto problem = ref(0);
-    if (header.root != node) {
-        auto parent = ref(node->oarent);
+    // inner node with 2 children
+    if (node->left && node->right) {
+        // find largest node in left subtree
+        auto next = ref(node->left);
+        while (next->right)
+            next = ref(next->right);
 
-        auto child = parent->side(node);
-        parent.children[child] = problem;
-        auto sibling = ref(parent.chilrend[-child]);
+        // copy key & data from leaf
+        node->key = next->key;
+        node->value = next->value;
+
+        // continue by deleting leaf
+        node = next;
+    }
+    typename Node::Color color = node->color;
+    mark_for_deletion(node);
+
+    // should now have one or zero children
+    assert(!node->left || !node->right);
+    auto parent = ref(node->parent);
+    auto problem = ref(node->children[-node->side(0)]);
+
+    typename Node::Child child;
+
+    // add single child or 0 to parent / as root
+    if (parent) {
+        child = parent->side(node);
+        parent->children[child] = problem;
+    } else {
+        header.root_node = problem;
+    }
+
+    // update parent
+    if (problem)
+        problem->parent = parent;
+
+    // node was red: done
+    if (color == Node::Red)
+        return;
+
+    // replacement is red and original was black:
+    // make replacement black -> done
+    if (problem && problem->color == Node::Red) {
+        problem->color = Node::Black;
+        return;
+    }
+
+    // black leaf -> need to fix black depth
+    node_ref sibling, cls_neph;
+    if (parent) {
+        sibling = ref(parent->children[-child]);
 
         if (sibling->color == Node::Red)
             goto case2;
@@ -106,19 +156,73 @@ RBTREE_TEMPL void RBTREE_CLASS::erase(const_iterator it) {
         sibling->color = Node::Red;
         problem = parent;
 
-        case2:
-        case3:
-        case4:
-        case5:
-        {}
+        while ((parent = ref(problem->parent))) {
+            child = parent->side(problem);
+            sibling = ref(parent->children[-child]);
+
+            if (sibling->color == Node::Red)
+                goto case2;
+            if (ref(sibling->children[-child])->color == Node::Red)
+                goto case5;
+            if (ref(sibling->children[child])->color == Node::Red)
+                goto case5;
+            if (parent->color == Node::Red)
+                goto case3;
+
+            sibling->color = Node::Red;
+            problem = parent;
+        }
     }
+
+    // case1:  // no parent
+    header.root_node = problem;
+    return;
+
+    case2:  // red sibling, black parent and nephews
+    sibling->color = Node::Black;
+    parent->color = Node::Red;
+
+    cls_neph = ref(sibling->children[child]);
+    rotate(parent, child);
+    if (!parent->parent)
+        header.root_node = sibling;
+    sibling = cls_neph;
+
+    if (sibling->children[-child] && ref(sibling->children[-child])->color == Node::Red)
+        goto case5;
+    if (sibling->children[child] && ref(sibling->children[child])->color == Node::Red)
+        goto case4;
+    // continue with case3
+
+    case3:  // red parent, black sibling and nephews
+    sibling->color = Node::Red;
+    parent->color = Node::Black;
+    return;
+
+    case4:  // black sibling, red close nephew and problem node
+    cls_neph = ref(sibling->children[child]);
+    cls_neph->color = Node::Black;
+
+    rotate(sibling, -child);
+    sibling->color = Node::Red;
+    sibling = cls_neph;
+    // continue with case5
+
+    case5:  // black sibling, red far nephew and problem node
+    sibling->color = parent->color;
+    parent->color = Node::Black;
+    ref(sibling->children[-child])->color = Node::Black;
+
+    rotate(parent, child);
+    if (!parent->parent)
+        header.root_node = sibling;
 }
 
 RBTREE_TEMPL template<size_t I> std::enable_if_t<std::is_same_v<void, typename RBTREE_CLASS::template element_t<I>>, bool>
 RBTREE_CLASS::insert(const Key &key) {
-    auto result = insert<Tag<I>>(key);
+    auto result = insert<Value<I>>(key);
     if (result)
-        new (&value_at<Tag<I>>(result.value())) Tag<I>();
+        new (&value_at<Value<I>>(result.value())) Value<I>();
     return result.has_value();
 }
 
@@ -138,8 +242,12 @@ RBTREE_TEMPL template<size_t I> bool RBTREE_CLASS::insert(const Key &key, elemen
 
 RBTREE_TEMPL template<typename T> std::optional<typename RBTREE_CLASS::pointer>
 RBTREE_CLASS::insert(const Key &key) {
-    if (sizeof(T) + sizeof(Node) > header.free_space)
-       return {};
+    if (sizeof(T) + sizeof(Node) > header.free_space) {
+        if (header.deleted)
+            compress();
+        if (sizeof(T) + sizeof(Node) > header.free_space)
+            return {};
+    }
 
     // find parent
     auto parent = ref(header.root_node);
@@ -265,6 +373,62 @@ RBTREE_TEMPL template<typename... Args> typename RBTREE_CLASS::node_ref RBTREE_C
     return ref(i + 1);
 }
 
+RBTREE_TEMPL void RBTREE_CLASS::mark_for_deletion(node_ref node) {
+    assert(node->color != Node::Deleted);
+
+    if (node->value == header.data_start) {
+        auto size = sizeof_value(node->value);
+        header.data_start += size;
+        header.free_space += size;
+
+        assert(node == header.node_count);
+        --header.node_count;
+        header.free_space += sizeof(Node);
+        return;
+    }
+
+    node->color = Node::Deleted;
+    ++header.deleted;
+}
+
+RBTREE_TEMPL void RBTREE_CLASS::compress() {
+    assert(header.deleted);
+
+    pointer data_move = 0;
+    node_pointer node_move = 0;
+    for (node_pointer i = 1; i <= header.node_count; ++i) {
+        auto node = ref(i);
+
+        if (node->color == Node::Deleted) {
+            size_t size = sizeof_value(node->value);
+            header.free_space += sizeof(Node) + size;
+
+            ++node_move;
+            data_move += size;
+        } else if (node_move) {
+            node_pointer target = i - node_move;
+            pointer val_target = node->value + data_move;
+
+            auto parent = ref(node->parent), left = ref(node->left), right = ref(node->right);
+            if (parent)
+                parent->children[parent->side(node)] = target;
+            else
+                header.root_node = target;
+
+            if (left)
+                left->parent = target;
+            if (right)
+                right->parent = target;
+
+            std::memmove(data + val_target, data + node->value, sizeof_value(node->value));
+            std::memmove(ref(target).node, ref(i).node, sizeof(Node));
+        }
+    }
+
+    header.node_count -= header.deleted;
+    header.deleted = 0;
+}
+
 RBTREE_TEMPL template<typename T> inline T &RBTREE_CLASS::value_at(pointer i) {
     return *(reinterpret_cast<T*>(data + i));
 }
@@ -278,13 +442,17 @@ RBTREE_TEMPL template<typename T> typename RBTREE_CLASS::pointer RBTREE_CLASS::r
     header.free_space -= sizeof(T);
     return header.data_start = i;
 }
+
+RBTREE_TEMPL size_t RBTREE_CLASS::sizeof_value(pointer i) const {
+    return sizes[value_at<Tag>(i).type];
+}
 // ---------------------------------------------------------------------------------------------------
 RBTREE_TEMPL const Key &RBTREE_CLASS::const_reference::key() const {
     return tree->ref(i)->key;
 }
 
 RBTREE_TEMPL typename RBTREE_CLASS::tag RBTREE_CLASS::const_reference::type() const {
-    return tree->value_at<tag>(tree->ref(i)->value);
+    return tree->value_at<Tag>(tree->ref(i)->value).type;
 }
 
 RBTREE_TEMPL template<size_t I> const typename RBTREE_CLASS::template element_t<I> &RBTREE_CLASS::const_reference::as() const {

@@ -23,7 +23,7 @@ void imlab::RbTree<Key, page_size, Compare, Ts...>::check_rb_invariants() const 
         if (!node) {
             if (!black_depth)
                 black_depth = std::get<1>(tuple);
-            EXPECT_EQ(black_depth.value(), std::get<1>(tuple)) << "Count: " << (uint64_t) header.node_count;
+            EXPECT_EQ(black_depth.value(), std::get<1>(tuple)) << "Count: " << size();
             continue;
         }
 
@@ -39,20 +39,20 @@ void imlab::RbTree<Key, page_size, Compare, Ts...>::check_rb_invariants() const 
 
         // basic binary tree invariants
         if (left)
-            EXPECT_TRUE(comp(left->key, node->key)) << "Count: " << (uint64_t) header.node_count;
+            EXPECT_TRUE(comp(left->key, node->key)) << "Count: " << size();
         if (right)
-            EXPECT_TRUE(comp(node->key, right->key)) << "Count: " << (uint64_t) header.node_count;
+            EXPECT_TRUE(comp(node->key, right->key)) << "Count: " << size();
 
         // red nodes have two black children (empty counts as black)
         if (node->color == Node::Red) {
             if (left)
-                EXPECT_EQ(left->color, Node::Black) << "Count: " << (uint64_t) header.node_count;
+                EXPECT_EQ(left->color, Node::Black) << "Count: " << size();
             if (right)
-                EXPECT_EQ(right->color, Node::Black) << "Count: " << (uint64_t) header.node_count;
+                EXPECT_EQ(right->color, Node::Black) << "Count: " << size();
         }
     }
 
-    EXPECT_EQ(node_count, header.node_count) << "Count: " << (uint64_t) header.node_count;
+    EXPECT_EQ(node_count, size()) << "Count: " << size();
 }
 
 namespace {
@@ -75,15 +75,16 @@ template<size_t page_size> using RbTreeTest = imlab::RbTree<MessageKey<uint64_t>
 constexpr uint8_t traversal_test[] = {
     1, 10, 8, 3, 6, 4, 7, 11, 9, 17, 2, 5, 15, 14, 13, 16, 12
 };
+constexpr auto traversal_test_size = sizeof(traversal_test) / sizeof(traversal_test[0]);
 
-TEST(RBTree, Sizes) {
+TEST(RbTree, Sizes) {
     ASSERT_EQ(sizeof(RbTreeTest<255>), 255);
     ASSERT_EQ(sizeof(RbTreeTest<(1ull << 16) - 2>), (1ull << 16) - 2);
     ASSERT_EQ(sizeof(RbTreeTest<(1ull << 32) - 4>), (1ull << 32) - 4);
     ASSERT_EQ(sizeof(RbTreeTest<1ull << 32>), 1ull << 32);
 }
 
-TEST(RBTree, LinearInsertion) {
+TEST(RbTree, LinearInsertion) {
     RbTreeTest<255> tree;
 
     uint32_t i = 0;
@@ -91,7 +92,7 @@ TEST(RBTree, LinearInsertion) {
         tree.check_rb_invariants();
 }
 
-TEST(RBTree, LinearReverseInsertion) {
+TEST(RbTree, LinearReverseInsertion) {
     RbTreeTest<255> tree;
 
     uint32_t i = std::numeric_limits<uint32_t>::max();
@@ -99,7 +100,7 @@ TEST(RBTree, LinearReverseInsertion) {
         tree.check_rb_invariants();
 }
 
-TEST(RBTree, SwitchingInsertion) {
+TEST(RbTree, SwitchingInsertion) {
     RbTreeTest<255> tree;
 
     uint32_t i = 0;
@@ -108,7 +109,7 @@ TEST(RBTree, SwitchingInsertion) {
         tree.check_rb_invariants();
 }
 
-TEST(RBTree, IrregularInsertion) {
+TEST(RbTree, IrregularInsertion) {
     RbTreeTest<1024> tree;
 
     for (auto i : traversal_test) {
@@ -117,18 +118,18 @@ TEST(RBTree, IrregularInsertion) {
     }
 }
 
-TEST(RBTree, EmptyTreeIterators) {
+TEST(RbTree, EmptyTreeIterators) {
     RbTreeTest<255> tree;
     ASSERT_EQ(tree.end(), tree.begin());
 }
 
-TEST(RBTree, NonEmptyTreeIterators) {
+TEST(RbTree, NonEmptyTreeIterators) {
     RbTreeTest<255> tree;
     tree.insert<2>({0, 0});
     ASSERT_NE(tree.end(), tree.begin());
 }
 
-TEST(RBTree, IteratorBegin) {
+TEST(RbTree, IteratorBegin) {
     RbTreeTest<255> tree;
     tree.insert<2>({0, 0});
     tree.insert<2>({0, 1});
@@ -136,7 +137,7 @@ TEST(RBTree, IteratorBegin) {
     ASSERT_EQ(2, tree.begin()->type());
 }
 
-TEST(RBTree, ForwardIterationLinear) {
+TEST(RbTree, ForwardIterationLinear) {
     RbTreeTest<255> tree;
 
     uint32_t i = 0;
@@ -148,7 +149,7 @@ TEST(RBTree, ForwardIterationLinear) {
         ASSERT_EQ(i++, ref.as<1>().value);
 }
 
-TEST(RBTree, ForwardIterationLinearReverse) {
+TEST(RbTree, ForwardIterationLinearReverse) {
     RbTreeTest<255> tree;
 
     uint32_t i = std::numeric_limits<uint32_t>::max();
@@ -159,7 +160,7 @@ TEST(RBTree, ForwardIterationLinearReverse) {
         ASSERT_EQ(++i, ref.as<1>().value);
 }
 
-TEST(RBTree, ForwardIterationSwitching) {
+TEST(RbTree, ForwardIterationSwitching) {
     RbTreeTest<255> tree;
 
     uint32_t i = 0;
@@ -176,7 +177,7 @@ TEST(RBTree, ForwardIterationSwitching) {
     }
 }
 
-TEST(RBTree, ForwardIterationIrregular) {
+TEST(RbTree, ForwardIterationIrregular) {
     RbTreeTest<1024> tree;
 
     for (auto i : traversal_test)
@@ -187,7 +188,7 @@ TEST(RBTree, ForwardIterationIrregular) {
         ASSERT_EQ(i++, ref.as<1>().value);
 }
 
-TEST(RBTree, Find) {
+TEST(RbTree, Find) {
     RbTreeTest<1024> tree;
     ASSERT_EQ(tree.end(), tree.find({0, 0}));
 
@@ -202,7 +203,7 @@ TEST(RBTree, Find) {
         ASSERT_EQ(i, tree.find({0, i})->as<1>().value);
 }
 
-TEST(RBTree, LowerBound) {
+TEST(RbTree, LowerBound) {
     RbTreeTest<1024> tree;
     ASSERT_EQ(tree.end(), tree.lower_bound({0, 0}));
 
@@ -219,7 +220,7 @@ TEST(RBTree, LowerBound) {
     }
 }
 
-TEST(RBTree, UpperBound) {
+TEST(RbTree, UpperBound) {
     RbTreeTest<1024> tree;
     ASSERT_EQ(tree.end(), tree.upper_bound({0, 0}));
 
@@ -233,6 +234,112 @@ TEST(RBTree, UpperBound) {
         if (j + 5 < i)
             EXPECT_EQ(j + 5, tree.upper_bound({j, 0})->as<1>().value);
     }
+}
+
+TEST(RbTree, SingleDelete) {
+    RbTreeTest<255> tree;
+
+    tree.insert<1>({1, 2}, {3});
+    auto it = tree.find({1, 2});
+    tree.erase(it);
+
+    EXPECT_EQ(0, tree.size());
+    tree.check_rb_invariants();
+    ASSERT_EQ(tree.end(), tree.begin());
+}
+
+TEST(RbTree, FillLinearEmptyFill) {
+    RbTreeTest<255> tree;
+
+    uint32_t i = 0;
+    while (tree.insert<2>({i++, 0})) {}
+    EXPECT_EQ(i - 1, tree.size());
+
+    auto it = tree.begin();
+    while (it != tree.end()) {
+        tree.erase(it);
+        tree.check_rb_invariants();
+        it = tree.begin();
+    }
+    EXPECT_EQ(0, tree.size());
+
+    uint32_t j = 0;
+    while (tree.insert<2>({j++, 0}))
+        tree.check_rb_invariants();
+    ASSERT_EQ(i, j);
+}
+
+TEST(RbTree, FillLinearReverseEmptyFill) {
+    RbTreeTest<255> tree;
+
+    uint32_t i = std::numeric_limits<uint32_t>::max();
+    while (tree.insert<2>({i--, 0})) {}
+    EXPECT_EQ(std::numeric_limits<uint32_t>::max() - i - 1, tree.size());
+
+    auto it = tree.begin();
+    while (it != tree.end()) {
+        tree.erase(it);
+        tree.check_rb_invariants();
+        it = tree.begin();
+    }
+    EXPECT_EQ(0, tree.size());
+
+    uint32_t j = 0;
+    while (tree.insert<2>({j++, 0}))
+        tree.check_rb_invariants();
+    ASSERT_EQ(std::numeric_limits<uint32_t>::max() - i, j);
+}
+
+TEST(RbTree, FillSwitchingEmptyFill) {
+    RbTreeTest<255> tree;
+
+    uint32_t i = 0;
+    uint32_t k = 0;
+    while (tree.insert<2>({i++, k ^= 1}))
+        tree.check_rb_invariants();
+    EXPECT_EQ(i - 1, tree.size());
+
+    auto it = tree.begin();
+    while (it != tree.end()) {
+        tree.erase(it);
+        tree.check_rb_invariants();
+        it = tree.begin();
+    }
+    EXPECT_EQ(0, tree.size());
+
+    uint32_t j = 0;
+    while (tree.insert<2>({j++, 0}))
+        tree.check_rb_invariants();
+    ASSERT_EQ(i, j);
+}
+
+TEST(RbTree, FillIrregularEmpty) {
+    RbTreeTest<1024> tree;
+
+    for (auto i : traversal_test)
+        ASSERT_TRUE(tree.insert<2>({0, i}));
+    EXPECT_EQ(traversal_test_size, tree.size());
+
+    auto it = tree.begin();
+    while (it != tree.end()) {
+        tree.erase(it);
+        tree.check_rb_invariants();
+        it = tree.begin();
+    }
+    EXPECT_EQ(0, tree.size());
+}
+
+TEST(RbTree, FillLinearEmptyIrregular) {
+    RbTreeTest<1024> tree;
+
+    for (uint32_t i = 1; i <= traversal_test_size; ++i)
+        ASSERT_TRUE(tree.insert<2>({0, i}));
+    EXPECT_EQ(traversal_test_size, tree.size());
+
+
+    for (auto i : traversal_test)
+        tree.erase(tree.find({0, i}));
+    EXPECT_EQ(0, tree.size());
 }
 
 // ---------------------------------------------------------------------------------------------------

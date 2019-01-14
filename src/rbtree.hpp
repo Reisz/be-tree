@@ -83,6 +83,37 @@ RBTREE_TEMPL typename RBTREE_CLASS::const_iterator RBTREE_CLASS::find(const Key 
     return end();
 }
 
+RBTREE_TEMPL void RBTREE_CLASS::erase(const_iterator it) {
+    auto node = ref(it.i);
+
+    auto problem = ref(0);
+    if (header.root != node) {
+        auto parent = ref(node->oarent);
+
+        auto child = parent->side(node);
+        parent.children[child] = problem;
+        auto sibling = ref(parent.chilrend[-child]);
+
+        if (sibling->color == Node::Red)
+            goto case2;
+        if (sibling->children[-child])
+            goto case5;
+        if (sibling->children[child])
+            goto case4;
+        if (parent->color == Node::Red)
+            goto case3;
+
+        sibling->color = Node::Red;
+        problem = parent;
+
+        case2:
+        case3:
+        case4:
+        case5:
+        {}
+    }
+}
+
 RBTREE_TEMPL template<size_t I> std::enable_if_t<std::is_same_v<void, typename RBTREE_CLASS::template element_t<I>>, bool>
 RBTREE_CLASS::insert(const Key &key) {
     auto result = insert<Tag<I>>(key);

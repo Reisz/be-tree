@@ -151,7 +151,24 @@ IMLAB_BTREE_TEMPL struct IMLAB_BTREE_CLASS::CoupledFixes {
     void advance(typename BufferManager<page_size>::ExclusiveFix next);
 };
 
-IMLAB_BTREE_TEMPL class IMLAB_BTREE_CLASS::iterator {};  // TODO
+IMLAB_BTREE_TEMPL class IMLAB_BTREE_CLASS::iterator {
+    friend class BTree;
+
+ public:
+    iterator &operator++();
+    iterator operator++(int);
+    bool operator==(const iterator &other) const;
+    bool operator!=(const iterator &other) const;
+    reference operator*() const;
+    T *operator->() const;
+
+ private:
+    iterator(typename BufferManager<page_size>::ExclusiveFix &&fix, uint32_t i)
+        : fix(fix), i(i) {}
+
+    typename BufferManager<page_size>::ExclusiveFix fix;
+    uint32_t i;
+};
 
 }  // namespace imlab
 // ---------------------------------------------------------------------------------------------------

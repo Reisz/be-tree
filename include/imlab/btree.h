@@ -18,7 +18,7 @@ namespace imlab {
     BTree<Key, T, page_size, Compare>
 
 template<typename Key, typename T, size_t page_size, typename Compare = std::less<Key>>
-class BTree : Segment<page_size> {
+class BTree : private Segment<page_size> {
     struct CoupledFixes;
 
  public:
@@ -159,17 +159,17 @@ IMLAB_BTREE_TEMPL class IMLAB_BTREE_CLASS::iterator {
 
  public:
     iterator &operator++();
-    iterator operator++(int);
     bool operator==(const iterator &other) const;
     bool operator!=(const iterator &other) const;
     reference operator*();
     pointer operator->();
 
  private:
-    iterator(typename BufferManager<page_size>::ExclusiveFix &&fix, uint32_t i)
-        : fix(fix), i(i) {}
+    iterator(Segment<page_size> &segment, typename BufferManager<page_size>::ExclusiveFix &&fix, uint32_t i)
+        : segment(segment), fix(fix), i(i) {}
 
     typename BufferManager<page_size>::ExclusiveFix fix;
+    Segment<page_size> &segment;
     uint32_t i;
 };
 

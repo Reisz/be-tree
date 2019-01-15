@@ -176,8 +176,21 @@ IMLAB_BTREE_TEMPL Key IMLAB_BTREE_CLASS::LeafNode::split(LeafNode &other, uint64
     return other.keys[0];
 }
 // ---------------------------------------------------------------------------------------------------
+IMLAB_BTREE_TEMPL typename IMLAB_BTREE_CLASS::iterator IMLAB_BTREE_CLASS::begin() {
+    if (!root)
+        return iterator(*this, {}, 0);
+
+    auto fix = this->fix_exclusive(root);
+    while (!fix.template as<Node>().is_leaf()) {
+        assert(fix.template as<Node>().count > 0);
+        fix = this->fix_exclusive(fix.template as<InnerNode>().children[0]);
+    }
+
+    return iterator(*this, fix, 0);
+}
+
 IMLAB_BTREE_TEMPL typename IMLAB_BTREE_CLASS::iterator IMLAB_BTREE_CLASS::end() {
-    return iterator({}, 0);
+    return iterator(*this, {}, 0);
 }
 
 IMLAB_BTREE_TEMPL void IMLAB_BTREE_CLASS::insert(const Key &key, const T &value) {
@@ -212,20 +225,20 @@ IMLAB_BTREE_TEMPL void IMLAB_BTREE_CLASS::erase(const Key &key) {
 
 IMLAB_BTREE_TEMPL typename BufferManager<page_size>::Fix IMLAB_BTREE_CLASS::root_fix() {
     if (root)
-        return this->manager.fix(root);
+        return this->fix(root);
     return {};
 }
 
 IMLAB_BTREE_TEMPL typename BufferManager<page_size>::ExclusiveFix IMLAB_BTREE_CLASS::root_fix_exclusive() {
     if (root)
-        return this->manager.fix_exclusive(*root);
+        return this->fix_exclusive(*root);
 
     root = next_page_id;
     return new_leaf();
 }
 
 IMLAB_BTREE_TEMPL typename BufferManager<page_size>::ExclusiveFix IMLAB_BTREE_CLASS::new_leaf() {
-    auto fix = this->manager.fix_exclusive(next_page_id++);
+    auto fix = this->fix_exclusive(next_page_id++);
     new (fix.data()) LeafNode();
     ++count;
 
@@ -233,7 +246,7 @@ IMLAB_BTREE_TEMPL typename BufferManager<page_size>::ExclusiveFix IMLAB_BTREE_CL
 }
 
 IMLAB_BTREE_TEMPL typename BufferManager<page_size>::ExclusiveFix IMLAB_BTREE_CLASS::new_inner(const Node &child) {
-    auto fix = this->manager.fix_exclusive(next_page_id++);
+    auto fix = this->fix_exclusive(next_page_id++);
     new (fix.data()) InnerNode(child);
 
     return fix;
@@ -292,7 +305,7 @@ IMLAB_BTREE_TEMPL typename IMLAB_BTREE_CLASS::CoupledFixes IMLAB_BTREE_CLASS::in
         if (inner.full())
             cf = split_inner(std::move(cf), key);
 
-        cf.advance(this->manager.fix_exclusive(cf.fix.template as<InnerNode>()->lower_bound(key)));
+        cf.advance(this->fix_exclusive(cf.fix.template as<InnerNode>()->lower_bound(key)));
     }
 
     if (cf.fix.template as<LeafNode>()->full())
@@ -305,7 +318,7 @@ IMLAB_BTREE_TEMPL typename IMLAB_BTREE_CLASS::CoupledFixes IMLAB_BTREE_CLASS::ex
     CoupledFixes cf = { root_fix_exclusive() };
 
     while (!cf.fix.template as<Node>()->is_leaf())
-        cf.advance(this->manager.fix_exclusive(cf.fix.template as<InnerNode>()->lower_bound(key)));
+        cf.advance(this->fix_exclusive(cf.fix.template as<InnerNode>()->lower_bound(key)));
 
     return cf;
 }
@@ -315,7 +328,7 @@ IMLAB_BTREE_TEMPL typename IMLAB_BTREE_CLASS::CoupledFixes IMLAB_BTREE_CLASS::in
     fixes.push_back(root_fix_exclusive());
 
     while (!fixes.back().template as<Node>()->is_leaf())
-        fixes.push_back(this->manager.fix_exclusive(fixes.back().template as<InnerNode>()->lower_bound(key)));
+        fixes.push_back(this->fix_exclusive(fixes.back().template as<InnerNode>()->lower_bound(key)));
 
     auto it = fixes.rbegin();
     if (it->template as<LeafNode>()->full()) {
@@ -339,6 +352,18 @@ IMLAB_BTREE_TEMPL uint64_t IMLAB_BTREE_CLASS::capacity() const {
     return leaf_count * LeafNode::kCapacity;
 }
 // ---------------------------------------------------------------------------------------------------
+IMLAB_BTREE_TEMPL typename IMLAB_BTREE_CLASS::iterator &IMLAB_BTREE_CLASS::iterator::operator++() {
+    auto &leaf = fix.template as<LeafNode>();
+    if (++i > leaf.count) {
+        if (leaf.next)
+            fix = segment.fix_exclusive(leaf.next);
+        else
+            fix.unfix();
+
+        i = 0;
+    }
+}
+
 IMLAB_BTREE_TEMPL bool IMLAB_BTREE_CLASS::iterator::operator==(const iterator &other) const {
     return fix.data() == other.fix.data() && i == other.i;
 }

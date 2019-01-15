@@ -118,6 +118,7 @@ BUFFER_MANAGER_TEMPL class BUFFER_MANAGER_CLASS::ExclusiveFix : public Fix {
     ExclusiveFix() = default;
 
     // get pointer for exclusive fix
+    using Fix::data;
     std::byte *data();
     template<typename T> T *as();
 

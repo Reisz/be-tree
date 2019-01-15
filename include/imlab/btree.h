@@ -165,8 +165,8 @@ IMLAB_BTREE_TEMPL class IMLAB_BTREE_CLASS::iterator {
     pointer operator->();
 
  private:
-    iterator(Segment<page_size> &segment, typename BufferManager<page_size>::ExclusiveFix &&fix, uint32_t i)
-        : segment(segment), fix(fix), i(i) {}
+    iterator(Segment<page_size> &segment, typename BufferManager<page_size>::ExclusiveFix fix, uint32_t i)
+        : segment(segment), fix(std::move(fix)), i(i) {}
 
     typename BufferManager<page_size>::ExclusiveFix fix;
     Segment<page_size> &segment;

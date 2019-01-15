@@ -21,9 +21,9 @@ TEST(BTree, InsertEmptyTree) {
     tree.insert(12, 34);
     EXPECT_EQ(1, tree.size());
 
-    // auto *v = tree.find(12);
-    // ASSERT_TRUE(v);
-    // ASSERT_EQ(34, *tree.find(12));
+    auto it = tree.find(12);
+    ASSERT_NE(tree.end(), it);
+    ASSERT_EQ(34, *it);
 }
 
 TEST(BTree, InsertDoesNotOverwrite) {
@@ -36,9 +36,9 @@ TEST(BTree, InsertDoesNotOverwrite) {
     tree.insert(12, 45);
     EXPECT_EQ(1, tree.size());
 
-    // auto *v = tree.find(12);
-    // ASSERT_TRUE(v);
-    // ASSERT_EQ(34, *tree.find(12));
+    auto it = tree.find(12);
+    ASSERT_NE(tree.end(), it);
+    ASSERT_EQ(34, *it);
 }
 
 TEST(BTree, InsertOrAssign) {
@@ -51,9 +51,9 @@ TEST(BTree, InsertOrAssign) {
     tree.insert_or_assign(12, 45);
     EXPECT_EQ(1, tree.size());
 
-    // auto *v = tree.find(12);
-    // ASSERT_TRUE(v);
-    // ASSERT_EQ(34, *tree.find(12));
+    auto it = tree.find(12);
+    ASSERT_NE(tree.end(), it);
+    ASSERT_EQ(45, *it);
 }
 // ---------------------------------------------------------------------------------------------------
 }  // namespace

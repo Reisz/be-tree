@@ -178,12 +178,12 @@ IMLAB_BTREE_TEMPL Key IMLAB_BTREE_CLASS::LeafNode::split(LeafNode &other, uint64
 // ---------------------------------------------------------------------------------------------------
 IMLAB_BTREE_TEMPL typename IMLAB_BTREE_CLASS::iterator IMLAB_BTREE_CLASS::begin() {
     if (!root)
-        return iterator(*this, {}, 0);
+        return end();
 
-    auto fix = this->fix_exclusive(root);
-    while (!fix.template as<Node>().is_leaf()) {
+    auto fix = this->fix_exclusive(*root);
+    while (!fix.template as<Node>()->is_leaf()) {
         assert(fix.template as<Node>().count > 0);
-        fix = this->fix_exclusive(fix.template as<InnerNode>().children[0]);
+        fix = this->fix_exclusive(fix.template as<InnerNode>()->children[0]);
     }
 
     return iterator(*this, fix, 0);
@@ -191,6 +191,22 @@ IMLAB_BTREE_TEMPL typename IMLAB_BTREE_CLASS::iterator IMLAB_BTREE_CLASS::begin(
 
 IMLAB_BTREE_TEMPL typename IMLAB_BTREE_CLASS::iterator IMLAB_BTREE_CLASS::end() {
     return iterator(*this, {}, 0);
+}
+
+IMLAB_BTREE_TEMPL typename IMLAB_BTREE_CLASS::iterator IMLAB_BTREE_CLASS::find(const Key &key) {
+    if (!root)
+        return end();
+
+    auto fix = this->fix_exclusive(*root);
+    while (!fix.template as<Node>()->is_leaf()) {
+        assert(fix.template as<Node>()->count > 0);
+        fix = this->fix_exclusive(fix.template as<InnerNode>()->lower_bound(key));
+    }
+
+    auto &leaf = *fix.template as<LeafNode>();
+    auto i = leaf.lower_bound(key);
+
+    return leaf.is_equal(key, i) ? iterator(*this, std::move(fix), i) : end();
 }
 
 IMLAB_BTREE_TEMPL void IMLAB_BTREE_CLASS::insert(const Key &key, const T &value) {
@@ -353,7 +369,7 @@ IMLAB_BTREE_TEMPL uint64_t IMLAB_BTREE_CLASS::capacity() const {
 }
 // ---------------------------------------------------------------------------------------------------
 IMLAB_BTREE_TEMPL typename IMLAB_BTREE_CLASS::iterator &IMLAB_BTREE_CLASS::iterator::operator++() {
-    auto &leaf = fix.template as<LeafNode>();
+    auto &leaf = *fix.template as<LeafNode>();
     if (++i > leaf.count) {
         if (leaf.next)
             fix = segment.fix_exclusive(leaf.next);
@@ -373,11 +389,11 @@ IMLAB_BTREE_TEMPL bool IMLAB_BTREE_CLASS::iterator::operator!=(const iterator &o
 }
 
 IMLAB_BTREE_TEMPL typename IMLAB_BTREE_CLASS::reference IMLAB_BTREE_CLASS::iterator::operator*() {
-    return fix.template as<LeafNode>.values[i];
+    return fix.template as<LeafNode>()->at(i);
 }
 
 IMLAB_BTREE_TEMPL typename IMLAB_BTREE_CLASS::pointer IMLAB_BTREE_CLASS::iterator::operator->() {
-    return &fix.template as<LeafNode>.values[i];
+    return &fix.template as<LeafNode>()->at(i);
 }
 // ---------------------------------------------------------------------------------------------------
 IMLAB_BTREE_TEMPL void IMLAB_BTREE_CLASS::CoupledFixes::advance(typename BufferManager<page_size>::ExclusiveFix next) {

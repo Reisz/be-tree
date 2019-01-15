@@ -41,6 +41,7 @@ class RbTree {
     // representation of values in the tree, grow from the end of the data area
     struct Tag;
     template<size_t I, typename T> struct Container;
+    template<size_t I> struct Container<I, void>;
     // template<size_t I> struct Value;
     template<size_t I> using Value = Container<I, element_t<I>>;
 

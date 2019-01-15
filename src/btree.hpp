@@ -239,13 +239,13 @@ IMLAB_BTREE_TEMPL void IMLAB_BTREE_CLASS::erase(const Key &key) {
     // TODO join ?
 }
 
-IMLAB_BTREE_TEMPL typename BufferManager<page_size>::Fix IMLAB_BTREE_CLASS::root_fix() {
+IMLAB_BTREE_TEMPL typename IMLAB_BTREE_CLASS::Fix IMLAB_BTREE_CLASS::root_fix() {
     if (root)
         return this->fix(root);
     return {};
 }
 
-IMLAB_BTREE_TEMPL typename BufferManager<page_size>::ExclusiveFix IMLAB_BTREE_CLASS::root_fix_exclusive() {
+IMLAB_BTREE_TEMPL typename IMLAB_BTREE_CLASS::ExclusiveFix IMLAB_BTREE_CLASS::root_fix_exclusive() {
     if (root)
         return this->fix_exclusive(*root);
 
@@ -253,7 +253,7 @@ IMLAB_BTREE_TEMPL typename BufferManager<page_size>::ExclusiveFix IMLAB_BTREE_CL
     return new_leaf();
 }
 
-IMLAB_BTREE_TEMPL typename BufferManager<page_size>::ExclusiveFix IMLAB_BTREE_CLASS::new_leaf() {
+IMLAB_BTREE_TEMPL typename IMLAB_BTREE_CLASS::ExclusiveFix IMLAB_BTREE_CLASS::new_leaf() {
     auto fix = this->fix_exclusive(next_page_id++);
     new (fix.data()) LeafNode();
     ++count;
@@ -261,7 +261,7 @@ IMLAB_BTREE_TEMPL typename BufferManager<page_size>::ExclusiveFix IMLAB_BTREE_CL
     return fix;
 }
 
-IMLAB_BTREE_TEMPL typename BufferManager<page_size>::ExclusiveFix IMLAB_BTREE_CLASS::new_inner(const Node &child) {
+IMLAB_BTREE_TEMPL typename IMLAB_BTREE_CLASS::ExclusiveFix IMLAB_BTREE_CLASS::new_inner(const Node &child) {
     auto fix = this->fix_exclusive(next_page_id++);
     new (fix.data()) InnerNode(child);
 
@@ -301,16 +301,30 @@ IMLAB_BTREE_TEMPL T &IMLAB_BTREE_CLASS::insert_or_assign_internal(const Key &key
         return leaf.make_space(key, idx);
 }
 
-IMLAB_BTREE_TEMPL typename IMLAB_BTREE_CLASS::CoupledFixes IMLAB_BTREE_CLASS::split_inner(CoupledFixes cf, const Key &key) {
-    // TODO
+IMLAB_BTREE_TEMPL void IMLAB_BTREE_CLASS::split_inner(ExclusiveFix &parent, ExclusiveFix &child, const Key &key) {
+    if (!parent.data()) {
+        root = next_page_id;
+        parent = new_inner();
+    }
 
-    return cf;
+    assert(!parent.template as<Node>->is_leaf());
+    assert(!child.template as<Node>->is_leaf());
+
+    auto split = new_inner();
+    // TODO
 }
 
-IMLAB_BTREE_TEMPL typename IMLAB_BTREE_CLASS::CoupledFixes IMLAB_BTREE_CLASS::split_leaf(CoupledFixes cf, const Key &key) {
-    // TODO
+IMLAB_BTREE_TEMPL void IMLAB_BTREE_CLASS::split_leaf(ExclusiveFix &parent, ExclusiveFix &child, const Key &key) {
+    if (!parent.data()) {
+        root = next_page_id;
+        parent = root_fix_exclusive();
+    }
 
-    return cf;
+    assert(!parent.template as<Node>->is_leaf());
+    assert(child.template as<Node>->is_leaf());
+
+    auto split = new_leaf();
+    // TODO
 }
 
 IMLAB_BTREE_TEMPL typename IMLAB_BTREE_CLASS::CoupledFixes IMLAB_BTREE_CLASS::insert_lc_early_split(const Key &key) {
@@ -319,13 +333,13 @@ IMLAB_BTREE_TEMPL typename IMLAB_BTREE_CLASS::CoupledFixes IMLAB_BTREE_CLASS::in
     while (!cf.fix.template as<Node>()->is_leaf()) {
         auto &inner = *cf.fix.template as<InnerNode>();
         if (inner.full())
-            cf = split_inner(std::move(cf), key);
+            split_inner(cf.prev, cf.fix, key);
 
         cf.advance(this->fix_exclusive(cf.fix.template as<InnerNode>()->lower_bound(key)));
     }
 
     if (cf.fix.template as<LeafNode>()->full())
-        cf = split_leaf(std::move(cf), key);
+        split_leaf(cf.prev, cf.fix, key);
 
     return cf;
 }
@@ -348,12 +362,12 @@ IMLAB_BTREE_TEMPL typename IMLAB_BTREE_CLASS::CoupledFixes IMLAB_BTREE_CLASS::in
 
     auto it = fixes.rbegin();
     if (it->template as<LeafNode>()->full()) {
-        // TODO split leaf
+        split_leaf(*(it + 1), *it, key);
         ++it;
         for (; it != fixes.rend(); ++it) {
             if (!it->template as<InnerNode>()->full())
                 break;
-            // TODO split inner
+            split_inner(*(it + 1), *it, key);
         }
     }
 

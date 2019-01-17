@@ -18,23 +18,23 @@ size_t lower_bound(const T* array, size_t len, const T& val, Compare comp) {
 
     size_t l = 0, r = len - 1;
     while (l < r) {
-        size_t m = (l + r) / 2;
+        size_t m = (l + r) >> 1;
 
         if (comp(array[m], val)) {
             l = m + 1;
         } else if (comp(val, array[m])) {
-            r = m - 1;
+            r = m;
         } else {
             return m;
         }
     }
 
     // postcondition: first index where !comp(array[index], val)
+    assert(l >= 0 && l < len);
     assert(!comp(array[l], val));
     if (l)
         assert(comp(array[l - 1], val));
 
-    assert(l >= 0 && l < len);
     return l;
 }
 
@@ -117,7 +117,7 @@ IMLAB_BTREE_TEMPL Key IMLAB_BTREE_CLASS::InnerNode::split(InnerNode &other) {
     other.children[i - start - 1] = children[i];
 
     other.count = this->count - start - 1;
-    this->count = start - 1;
+    this->count = start;
 
     return keys[start];
 }
@@ -196,7 +196,7 @@ IMLAB_BTREE_TEMPL Key IMLAB_BTREE_CLASS::LeafNode::split(LeafNode &other, uint64
     other.next = this->next;
     this->next = other_page;
 
-    return other.keys[0];  // NOTE maybe use inbetween key
+    return keys[this->count - 1];  // NOTE maybe use inbetween key
 }
 // ---------------------------------------------------------------------------------------------------
 IMLAB_BTREE_TEMPL typename IMLAB_BTREE_CLASS::iterator IMLAB_BTREE_CLASS::begin() {

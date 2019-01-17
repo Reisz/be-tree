@@ -74,6 +74,12 @@ TEST(BTree, MultipleInserts) {
     for (uint32_t i = 0; i < insert_amount<1024>; ++i)
         tree.insert(i, i);
     EXPECT_EQ(insert_amount<1024>, tree.size());
+
+    uint32_t i = 0;
+    for (auto j : tree)
+        EXPECT_EQ(i++, j);
+    for (uint32_t i = 0; i < insert_amount<1024>; ++i)
+        EXPECT_EQ(i, *tree.find(i));
 }
 
 TEST(BTree, MultipleInsertOrAssigns) {
@@ -87,6 +93,8 @@ TEST(BTree, MultipleInsertOrAssigns) {
     uint32_t i = 0;
     for (auto j : tree)
         EXPECT_EQ(i++, j);
+    for (uint32_t i = 0; i < insert_amount<1024>; ++i)
+        EXPECT_EQ(i, *tree.find(i));
 }
 // ---------------------------------------------------------------------------------------------------
 }  // namespace

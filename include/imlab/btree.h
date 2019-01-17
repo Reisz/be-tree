@@ -23,6 +23,8 @@ class BTree : private Segment<page_size> {
     using Fix = typename BufferManager<page_size>::Fix;
     using ExclusiveFix = typename BufferManager<page_size>::ExclusiveFix;
 
+    using InsertResult = std::pair<ExclusiveFix, T&>;
+
  public:
     using key_type = Key;
     using value_type = T;
@@ -72,13 +74,12 @@ class BTree : private Segment<page_size> {
     // get exclusive fix, will always return fix of valid node
     ExclusiveFix root_fix_exclusive();
     ExclusiveFix new_leaf();
-    ExclusiveFix new_inner(const Node &child);
+    ExclusiveFix new_inner(uint16_t level);
 
-    T *insert_internal(const Key &key);
-    T &insert_or_assign_internal(const Key &key);
+    std::optional<InsertResult> insert_internal(const Key &key);
+    InsertResult insert_or_assign_internal(const Key &key);
 
-    void split_inner(ExclusiveFix &parent, ExclusiveFix &child, const Key &key);
-    void split_leaf(ExclusiveFix &parent, ExclusiveFix &child, const Key &key);
+    void split(ExclusiveFix &parent, ExclusiveFix &child, const Key &key);
 
     // insert in a lock coupled manner, prevent cascading splits by splitting
     // full nodes on the path in all cases
@@ -104,18 +105,19 @@ IMLAB_BTREE_TEMPL class IMLAB_BTREE_CLASS::InnerNode : public Node {
     static constexpr uint32_t kCapacity =
         (page_size - sizeof(Node) - sizeof(uint64_t)) / (sizeof(Key) + sizeof(uint64_t));
 
-    constexpr InnerNode(const Node &child);
+    constexpr InnerNode(uint16_t level);
 
+    uint64_t begin() const;
     uint64_t lower_bound(const Key &key) const;
     bool full() const;
 
+    void init(uint64_t left);
     void insert(const Key &key, uint64_t split_page);
     Key split(InnerNode &other);
 
  private:
     Key keys[kCapacity];
-    uint64_t children[kCapacity];
-    uint64_t right_child;
+    uint64_t children[kCapacity + 1];
 };
 
 IMLAB_BTREE_TEMPL class IMLAB_BTREE_CLASS::LeafNode : public Node {
@@ -131,6 +133,8 @@ IMLAB_BTREE_TEMPL class IMLAB_BTREE_CLASS::LeafNode : public Node {
     const T &at(uint32_t idx) const;
     T &at(uint32_t idx);
     bool is_equal(const Key &key, uint32_t idx) const;
+
+    const next_ptr &get_next() const;
 
     bool full() const;
 

@@ -22,6 +22,10 @@ template <size_t page_size> class Segment {
         return manager.fix_exclusive(segment_page_id(page_id));
     }
 
+    uint64_t page_id(typename BufferManager<page_size>::Fix &fix) {
+        return fix.page_id() & ((1ull << 48) - 1);
+    }
+
  private:
     BufferManager<page_size>& manager;
     uint64_t segment_id_mask;

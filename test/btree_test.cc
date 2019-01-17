@@ -15,7 +15,7 @@ TEST(BTree, Sizes) {
 }
 
 TEST(BTree, InsertEmptyTree) {
-    imlab::BufferManager<1024> buffer_manager{100};
+    imlab::BufferManager<1024> buffer_manager{10};
     BTreeTest<1024> tree(0, buffer_manager);
 
     tree.insert(12, 34);
@@ -27,7 +27,7 @@ TEST(BTree, InsertEmptyTree) {
 }
 
 TEST(BTree, InsertDoesNotOverwrite) {
-    imlab::BufferManager<1024> buffer_manager{100};
+    imlab::BufferManager<1024> buffer_manager{10};
     BTreeTest<1024> tree(0, buffer_manager);
 
     tree.insert(12, 34);
@@ -42,7 +42,7 @@ TEST(BTree, InsertDoesNotOverwrite) {
 }
 
 TEST(BTree, InsertOrAssign) {
-    imlab::BufferManager<1024> buffer_manager{100};
+    imlab::BufferManager<1024> buffer_manager{10};
     BTreeTest<1024> tree(0, buffer_manager);
 
     tree.insert(12, 34);
@@ -54,6 +54,39 @@ TEST(BTree, InsertOrAssign) {
     auto it = tree.find(12);
     ASSERT_NE(tree.end(), it);
     ASSERT_EQ(45, *it);
+}
+
+TEST(BTree, LookupEmptyTree) {
+    imlab::BufferManager<1024> buffer_manager{10};
+    BTreeTest<1024> tree(0, buffer_manager);
+
+    ASSERT_EQ(tree.end(), tree.begin());
+    ASSERT_EQ(tree.end(), tree.find(0));
+}
+
+template<size_t size> constexpr auto insert_amount =
+    BTreeTest<size>::LeafNode::kCapacity * BTreeTest<size>::InnerNode::kCapacity * 2;
+
+TEST(BTree, MultipleInserts) {
+    imlab::BufferManager<1024> buffer_manager{10};
+    BTreeTest<1024> tree(0, buffer_manager);
+
+    for (uint32_t i = 0; i < insert_amount<1024>; ++i)
+        tree.insert(i, i);
+    EXPECT_EQ(insert_amount<1024>, tree.size());
+}
+
+TEST(BTree, MultipleInsertOrAssigns) {
+    imlab::BufferManager<1024> buffer_manager{10};
+    BTreeTest<1024> tree(0, buffer_manager);
+
+    for (uint32_t i = 0; i < insert_amount<1024>; ++i)
+        tree.insert_or_assign(i, i);
+    EXPECT_EQ(insert_amount<1024>, tree.size());
+
+    uint32_t i = 0;
+    for (auto j : tree)
+        EXPECT_EQ(i++, j);
 }
 // ---------------------------------------------------------------------------------------------------
 }  // namespace

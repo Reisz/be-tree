@@ -100,6 +100,9 @@ BUFFER_MANAGER_TEMPL class BufferManager<page_size>::Fix {
     ~Fix();
     void unfix();
 
+    // observers
+    uint64_t page_id() const;
+
     // get pointer for non exclusive fix
     const std::byte *data() const;
     template<typename T> const T *as() const;

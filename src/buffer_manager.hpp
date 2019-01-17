@@ -263,6 +263,10 @@ BUFFER_MANAGER_TEMPL void BUFFER_MANAGER_CLASS::Fix::unfix() {
     page = nullptr;
 }
 
+BUFFER_MANAGER_TEMPL uint64_t BUFFER_MANAGER_CLASS::Fix::page_id() const {
+    return page->page_id;
+}
+
 BUFFER_MANAGER_TEMPL const std::byte *BUFFER_MANAGER_CLASS::Fix::data() const {
     if (page)
         return page->data.get();
@@ -277,7 +281,7 @@ BUFFER_MANAGER_TEMPL std::byte *BUFFER_MANAGER_CLASS::ExclusiveFix::data() {
 
 BUFFER_MANAGER_TEMPL template<typename T> const T *BUFFER_MANAGER_CLASS::Fix::as() const {
     static_assert(sizeof(T) <= page_size);
-    return reinterpret_cast<T*>(data());
+    return reinterpret_cast<const T*>(data());
 }
 
 BUFFER_MANAGER_TEMPL template<typename T> T *BUFFER_MANAGER_CLASS::ExclusiveFix::as() {

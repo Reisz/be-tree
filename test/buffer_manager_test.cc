@@ -60,7 +60,7 @@ TEST(BufferManager, PersistentRestart) {
             for (uint64_t segment_page = 0; segment_page < 10; ++segment_page) {
                 uint64_t page_id = (static_cast<uint64_t>(segment) << 48) | segment_page;
                 auto fix = manager.fix_exclusive(page_id);
-                uint64_t& value = *reinterpret_cast<uint64_t*>(fix.data());
+                uint64_t& value = *fix.as<uint64_t>();
                 value = segment * 10 + segment_page;
                 fix.set_dirty();
             }
@@ -72,7 +72,7 @@ TEST(BufferManager, PersistentRestart) {
             for (uint64_t segment_page = 0; segment_page < 10; ++segment_page) {
                 uint64_t page_id = (static_cast<uint64_t>(segment) << 48) | segment_page;
                 auto fix = manager.fix(page_id);
-                uint64_t value = *reinterpret_cast<const uint64_t*>(fix.data());
+                uint64_t value = *fix.as<uint64_t>();
                 fix.unfix();
                 EXPECT_EQ(segment * 10 + segment_page, value);
             }

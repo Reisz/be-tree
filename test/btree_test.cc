@@ -96,6 +96,42 @@ TEST(BTree, MultipleInsertOrAssigns) {
     for (uint32_t i = 0; i < insert_amount<1024>; ++i)
         EXPECT_EQ(i, *tree.find(i));
 }
+
+TEST(BTree, MultipleInsertReverse) {
+    imlab::BufferManager<1024> buffer_manager{10};
+    BTreeTest<1024> tree(0, buffer_manager);
+
+    for (uint32_t i = insert_amount<1024>; i > 0; --i)
+        tree.insert(i, i);
+    ASSERT_EQ(insert_amount<1024>, tree.size());
+
+    ASSERT_EQ(tree.end(), tree.find(0));
+    ASSERT_EQ(tree.end(), tree.find(insert_amount<1024> + 1));
+
+    uint32_t i = 1;
+    for (auto j : tree)
+        EXPECT_EQ(i++, j);
+    for (uint32_t i = 1; i <= insert_amount<1024>; ++i)
+        EXPECT_EQ(i, *tree.find(i));
+}
+
+TEST(BTree, MultipleInsertOrAssignsReverse) {
+    imlab::BufferManager<1024> buffer_manager{10};
+    BTreeTest<1024> tree(0, buffer_manager);
+
+    for (uint32_t i = insert_amount<1024>; i > 0; --i)
+        tree.insert_or_assign(i, i);
+    ASSERT_EQ(insert_amount<1024>, tree.size());
+
+    ASSERT_EQ(tree.end(), tree.find(0));
+    ASSERT_EQ(tree.end(), tree.find(insert_amount<1024> + 1));
+
+    uint32_t i = 1;
+    for (auto j : tree)
+        EXPECT_EQ(i++, j);
+    for (uint32_t i = 1; i <= insert_amount<1024>; ++i)
+        EXPECT_EQ(i, *tree.find(i));
+}
 // ---------------------------------------------------------------------------------------------------
 }  // namespace
 // ---------------------------------------------------------------------------------------------------

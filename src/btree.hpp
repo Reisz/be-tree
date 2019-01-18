@@ -6,38 +6,6 @@
 // ---------------------------------------------------------------------------------------------------
 #include "imlab/btree.h"
 #include <vector>
-// ---------------------------------------------------------------------------------------------------
-template<typename T, typename Compare>
-size_t lower_bound(const T* array, size_t len, const T& val, Compare comp) {
-    // precondition: lower_bound needs to be findable
-    assert(len > 0 && !comp(array[len - 1], val));
-
-    // precondition: array is sorted
-    for (size_t i = 1; i < len; ++i)
-        assert(comp(array[i - 1], array[i]));
-
-    size_t l = 0, r = len - 1;
-    while (l < r) {
-        size_t m = (l + r) >> 1;
-
-        if (comp(array[m], val)) {
-            l = m + 1;
-        } else if (comp(val, array[m])) {
-            r = m;
-        } else {
-            return m;
-        }
-    }
-
-    // postcondition: first index where !comp(array[index], val)
-    assert(l >= 0 && l < len);
-    assert(!comp(array[l], val));
-    if (l)
-        assert(comp(array[l - 1], val));
-
-    return l;
-}
-
 
 namespace imlab {
 // ---------------------------------------------------------------------------------------------------
@@ -62,7 +30,14 @@ IMLAB_BTREE_TEMPL uint64_t IMLAB_BTREE_CLASS::InnerNode::lower_bound(const Key &
     assert(this->count > 0);
     if (comp(keys[this->count - 1], key))
         return children[this->count];
-    return children[::lower_bound(keys, this->count, key, comp)];
+    return children[std::lower_bound(keys, keys + this->count, key, comp) - keys];
+}
+
+IMLAB_BTREE_TEMPL uint64_t IMLAB_BTREE_CLASS::InnerNode::upper_bound(const Key &key) const {
+    assert(this->count > 0);
+    if (!comp(key, keys[this->count - 1]))
+        return children[this->count];
+    return children[std::upper_bound(keys, keys + this->count, key, comp) - keys];
 }
 
 IMLAB_BTREE_TEMPL bool IMLAB_BTREE_CLASS::InnerNode::full() const {
@@ -124,11 +99,19 @@ IMLAB_BTREE_TEMPL Key IMLAB_BTREE_CLASS::InnerNode::split(InnerNode &other) {
 // ---------------------------------------------------------------------------------------------------
 IMLAB_BTREE_TEMPL constexpr IMLAB_BTREE_CLASS::LeafNode::LeafNode()
     : Node(0) {}
+
 IMLAB_BTREE_TEMPL uint32_t IMLAB_BTREE_CLASS::LeafNode::lower_bound(const Key &key) const {
     assert(this->count > 0);
     if (comp(keys[this->count - 1], key))
         return this->count;
-    return ::lower_bound(keys, this->count, key, comp);
+    return std::lower_bound(keys, keys + this->count, key, comp) - keys;
+}
+
+IMLAB_BTREE_TEMPL uint32_t IMLAB_BTREE_CLASS::LeafNode::upper_bound(const Key &key) const {
+    assert(this->count > 0);
+    if (!comp(key, keys[this->count - 1]))
+        return this->count;
+    return std::upper_bound(keys, keys + this->count, key, comp) - keys;
 }
 
 IMLAB_BTREE_TEMPL const T &IMLAB_BTREE_CLASS::LeafNode::at(uint32_t idx) const {
@@ -247,6 +230,23 @@ IMLAB_BTREE_TEMPL typename IMLAB_BTREE_CLASS::iterator IMLAB_BTREE_CLASS::lower_
 
     auto &leaf = *fix.template as<LeafNode>();
     auto i = leaf.lower_bound(key);
+
+    return i < leaf.count ? iterator(*this, std::move(fix), i) : end();
+}
+
+IMLAB_BTREE_TEMPL typename IMLAB_BTREE_CLASS::iterator IMLAB_BTREE_CLASS::upper_bound(const Key &key) {
+    if (!root)
+        return end();
+
+    auto fix = this->fix_exclusive(*root);
+    while (!fix.template as<Node>()->is_leaf()) {
+        assert(fix.template as<Node>()->count > 0);
+        fix = this->fix_exclusive(fix.template as<InnerNode>()->upper_bound(key));
+    }
+    assert(fix.template as<Node>()->count > 0);
+
+    auto &leaf = *fix.template as<LeafNode>();
+    auto i = leaf.upper_bound(key);
 
     return i < leaf.count ? iterator(*this, std::move(fix), i) : end();
 }

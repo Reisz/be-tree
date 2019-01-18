@@ -109,6 +109,7 @@ IMLAB_BTREE_TEMPL class IMLAB_BTREE_CLASS::InnerNode : public Node {
 
     uint64_t begin() const;
     uint64_t lower_bound(const Key &key) const;
+    uint64_t upper_bound(const Key &key) const;
     bool full() const;
 
     void init(uint64_t left);
@@ -130,6 +131,7 @@ IMLAB_BTREE_TEMPL class IMLAB_BTREE_CLASS::LeafNode : public Node {
 
     // returns first index where keys[i] >= key
     uint32_t lower_bound(const Key &key) const;
+    uint32_t upper_bound(const Key &key) const;
     const T &at(uint32_t idx) const;
     T &at(uint32_t idx);
     bool is_equal(const Key &key, uint32_t idx) const;

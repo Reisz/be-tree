@@ -234,6 +234,23 @@ IMLAB_BTREE_TEMPL typename IMLAB_BTREE_CLASS::iterator IMLAB_BTREE_CLASS::find(c
     return leaf.is_equal(key, i) ? iterator(*this, std::move(fix), i) : end();
 }
 
+IMLAB_BTREE_TEMPL typename IMLAB_BTREE_CLASS::iterator IMLAB_BTREE_CLASS::lower_bound(const Key &key) {
+    if (!root)
+        return end();
+
+    auto fix = this->fix_exclusive(*root);
+    while (!fix.template as<Node>()->is_leaf()) {
+        assert(fix.template as<Node>()->count > 0);
+        fix = this->fix_exclusive(fix.template as<InnerNode>()->lower_bound(key));
+    }
+    assert(fix.template as<Node>()->count > 0);
+
+    auto &leaf = *fix.template as<LeafNode>();
+    auto i = leaf.lower_bound(key);
+
+    return i < leaf.count ? iterator(*this, std::move(fix), i) : end();
+}
+
 IMLAB_BTREE_TEMPL void IMLAB_BTREE_CLASS::insert(const Key &key, const T &value) {
     auto ir = insert_internal(key);
     if (ir)

@@ -75,11 +75,16 @@ TEST(BTree, MultipleInserts) {
         tree.insert(i, i);
     EXPECT_EQ(insert_amount<1024>, tree.size());
 
+    ASSERT_EQ(tree.end(), tree.find(insert_amount<1024>));
+    ASSERT_EQ(tree.end(), tree.lower_bound(insert_amount<1024>));
+
     uint32_t i = 0;
     for (auto j : tree)
         EXPECT_EQ(i++, j);
-    for (uint32_t i = 0; i < insert_amount<1024>; ++i)
+    for (uint32_t i = 0; i < insert_amount<1024>; ++i) {
         EXPECT_EQ(i, *tree.find(i));
+        EXPECT_EQ(i, *tree.lower_bound(i));
+    }
 }
 
 TEST(BTree, MultipleInsertOrAssigns) {
@@ -90,11 +95,16 @@ TEST(BTree, MultipleInsertOrAssigns) {
         tree.insert_or_assign(i, i);
     EXPECT_EQ(insert_amount<1024>, tree.size());
 
+    ASSERT_EQ(tree.end(), tree.find(insert_amount<1024>));
+    ASSERT_EQ(tree.end(), tree.lower_bound(insert_amount<1024>));
+
     uint32_t i = 0;
     for (auto j : tree)
         EXPECT_EQ(i++, j);
-    for (uint32_t i = 0; i < insert_amount<1024>; ++i)
+    for (uint32_t i = 0; i < insert_amount<1024>; ++i) {
         EXPECT_EQ(i, *tree.find(i));
+        EXPECT_EQ(i, *tree.lower_bound(i));
+    }
 }
 
 TEST(BTree, MultipleInsertReverse) {
@@ -106,13 +116,17 @@ TEST(BTree, MultipleInsertReverse) {
     ASSERT_EQ(insert_amount<1024>, tree.size());
 
     ASSERT_EQ(tree.end(), tree.find(0));
+    ASSERT_EQ(1, *tree.lower_bound(0));
     ASSERT_EQ(tree.end(), tree.find(insert_amount<1024> + 1));
+    ASSERT_EQ(tree.end(), tree.lower_bound(insert_amount<1024> + 1));
 
     uint32_t i = 1;
     for (auto j : tree)
         EXPECT_EQ(i++, j);
-    for (uint32_t i = 1; i <= insert_amount<1024>; ++i)
+    for (uint32_t i = 1; i <= insert_amount<1024>; ++i) {
         EXPECT_EQ(i, *tree.find(i));
+        EXPECT_EQ(i, *tree.lower_bound(i));
+    }
 }
 
 TEST(BTree, MultipleInsertOrAssignsReverse) {
@@ -124,13 +138,17 @@ TEST(BTree, MultipleInsertOrAssignsReverse) {
     ASSERT_EQ(insert_amount<1024>, tree.size());
 
     ASSERT_EQ(tree.end(), tree.find(0));
+    ASSERT_EQ(1, *tree.lower_bound(0));
     ASSERT_EQ(tree.end(), tree.find(insert_amount<1024> + 1));
+    ASSERT_EQ(tree.end(), tree.lower_bound(insert_amount<1024> + 1));
 
     uint32_t i = 1;
     for (auto j : tree)
         EXPECT_EQ(i++, j);
-    for (uint32_t i = 1; i <= insert_amount<1024>; ++i)
+    for (uint32_t i = 1; i <= insert_amount<1024>; ++i) {
         EXPECT_EQ(i, *tree.find(i));
+        EXPECT_EQ(i, *tree.lower_bound(i));
+    }
 }
 // ---------------------------------------------------------------------------------------------------
 }  // namespace

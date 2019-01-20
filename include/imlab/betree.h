@@ -18,6 +18,8 @@ namespace imlab {
 template<typename Key, typename T, size_t page_size, size_t epsilon, typename Compare = std::less<Key>>
 class BeTree : Segment<page_size> {
     struct CoupledFixes;
+    using Fix = typename BufferManager<page_size>::Fix;
+    using ExclusiveFix = typename BufferManager<page_size>::ExclusiveFix;
 
  public:
     using key_type = Key;
@@ -31,7 +33,7 @@ class BeTree : Segment<page_size> {
     typedef T (*Upsert) (T &&);
     using MessageMap = RbTree<MessageKey, epsilon, std::less<MessageKey>,
         T, T, Upsert, void>;
-    enum class Msg : uint8_t {
+    enum class Message : uint8_t {
         Insert, InsertOrAssign, Upsert, Erase
     };
 
@@ -68,12 +70,10 @@ class BeTree : Segment<page_size> {
     uint64_t count = 0;
     uint64_t leaf_count = 0;
 
-    // get non-exclusive fix, might return empty fix
-    typename BufferManager<page_size>::Fix root_fix();
     // get exclusive fix, will always return fix of valid node
-    typename BufferManager<page_size>::ExclusiveFix root_fix_exclusive();
-    typename BufferManager<page_size>::ExclusiveFix new_leaf();
-    typename BufferManager<page_size>::ExclusiveFix new_inner(const Node &child);
+    ExclusiveFix root_fix_exclusive();
+    ExclusiveFix new_leaf();
+    ExclusiveFix new_inner(const Node &child);
 };
 
 IMLAB_BETREE_TEMPL struct IMLAB_BETREE_CLASS::Node {

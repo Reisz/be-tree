@@ -69,8 +69,6 @@ class BTree : private Segment<page_size> {
     uint64_t count = 0;
     uint64_t leaf_count = 0;
 
-    // get non-exclusive fix, might return empty fix
-    Fix root_fix();
     // get exclusive fix, will always return fix of valid node
     ExclusiveFix root_fix_exclusive();
     ExclusiveFix new_leaf();

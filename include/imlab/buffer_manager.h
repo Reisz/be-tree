@@ -31,6 +31,10 @@ BUFFER_MANAGER_TEMPL class BufferManager {
     Fix fix(uint64_t page_id);
     ExclusiveFix fix_exclusive(uint64_t page_id);
 
+    // access optimization info
+    bool in_memory(uint64_t page_id) const;
+    bool is_dirty(uint64_t page_id) const;
+
     // testing interface, not linked in prod code
     const std::vector<uint64_t> get_fifo() const;
     const std::vector<uint64_t> get_lru() const;

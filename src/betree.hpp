@@ -8,13 +8,27 @@
 // ---------------------------------------------------------------------------------------------------
 namespace imlab {
 // ---------------------------------------------------------------------------------------------------
-IMLAB_BETREE_TEMPL typename BufferManager<page_size>::Fix IMLAB_BETREE_CLASS::root_fix() {
-    if (root)
-        return this->manager.fix(root);
-    return {};
+IMLAB_BETREE_TEMPL void IMLAB_BETREE_CLASS::insert(const Key &key, const T &value) {
+    // add_message<Message::Insert>(key, value);
 }
 
-IMLAB_BETREE_TEMPL typename BufferManager<page_size>::ExclusiveFix IMLAB_BETREE_CLASS::root_fix_exclusive() {
+IMLAB_BETREE_TEMPL void IMLAB_BETREE_CLASS::insert(const Key &key, T &&value) {
+    // add_message<Message::Insert>(key, std::forward(value));
+}
+
+IMLAB_BETREE_TEMPL void IMLAB_BETREE_CLASS::insert_or_assign(const Key &key, const T &value) {
+    // add_message<Message::InsertOrAssign>(key, value);
+}
+
+IMLAB_BETREE_TEMPL void IMLAB_BETREE_CLASS::insert_or_assign(const Key &key, T &&value) {
+    // add_message<Message::InsertOrAssign>(key);
+}
+
+IMLAB_BETREE_TEMPL void IMLAB_BETREE_CLASS::erase(const Key &key) {
+    // add_message<Message::Erase>(key);
+}
+
+IMLAB_BETREE_TEMPL typename IMLAB_BETREE_CLASS::ExclusiveFix IMLAB_BETREE_CLASS::root_fix_exclusive() {
     if (root)
         return this->manager.fix_exclusive(*root);
 
@@ -22,7 +36,7 @@ IMLAB_BETREE_TEMPL typename BufferManager<page_size>::ExclusiveFix IMLAB_BETREE_
     return new_leaf();
 }
 
-IMLAB_BETREE_TEMPL typename BufferManager<page_size>::ExclusiveFix IMLAB_BETREE_CLASS::new_leaf() {
+IMLAB_BETREE_TEMPL typename IMLAB_BETREE_CLASS::ExclusiveFix IMLAB_BETREE_CLASS::new_leaf() {
     auto fix = this->manager.fix_exclusive(next_page_id++);
     new (fix.data()) LeafNode();
     ++count;
@@ -30,7 +44,7 @@ IMLAB_BETREE_TEMPL typename BufferManager<page_size>::ExclusiveFix IMLAB_BETREE_
     return fix;
 }
 
-IMLAB_BETREE_TEMPL typename BufferManager<page_size>::ExclusiveFix IMLAB_BETREE_CLASS::new_inner(const Node &child) {
+IMLAB_BETREE_TEMPL typename IMLAB_BETREE_CLASS::ExclusiveFix IMLAB_BETREE_CLASS::new_inner(const Node &child) {
     auto fix = this->manager.fix_exclusive(next_page_id++);
     new (fix.data()) InnerNode(child);
 

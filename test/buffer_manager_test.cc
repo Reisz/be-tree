@@ -33,6 +33,10 @@ namespace {
 // ---------------------------------------------------------------------------------------------------
 TEST(BufferManager, FixSingle) {
     imlab::BufferManager<1024> manager{10};
+
+    EXPECT_FALSE(manager.in_memory(1));
+    EXPECT_FALSE(manager.is_dirty(1));
+
     std::vector<uint64_t> expected_values(1024 / sizeof(uint64_t), 123);
     {
         auto fix = manager.fix_exclusive(1);
@@ -42,6 +46,13 @@ TEST(BufferManager, FixSingle) {
         EXPECT_EQ(std::vector<uint64_t>{1}, manager.get_fifo());
         EXPECT_TRUE(manager.get_lru().empty());
     }
+
+    EXPECT_FALSE(manager.in_memory(0));
+    EXPECT_FALSE(manager.is_dirty(0));
+
+    EXPECT_TRUE(manager.in_memory(1));
+    EXPECT_TRUE(manager.is_dirty(1));
+
     {
         std::vector<uint64_t> values(1024 / sizeof(uint64_t));
         auto fix = manager.fix(1);
@@ -86,6 +97,8 @@ TEST(BufferManager, FIFOEvict) {
         auto fix = manager.fix(i);
     }
 
+    EXPECT_FALSE(manager.in_memory(11));
+
     {
         std::vector<uint64_t> expected_fifo{1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
         EXPECT_EQ(expected_fifo, manager.get_fifo());
@@ -95,6 +108,9 @@ TEST(BufferManager, FIFOEvict) {
     {
         auto fix = manager.fix(11);
     }
+
+    EXPECT_FALSE(manager.in_memory(1));
+    EXPECT_TRUE(manager.in_memory(11));
 
     {
         std::vector<uint64_t> expected_fifo{2, 3, 4, 5, 6, 7, 8, 9, 10, 11};

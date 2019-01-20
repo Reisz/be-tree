@@ -283,12 +283,6 @@ IMLAB_BTREE_TEMPL void IMLAB_BTREE_CLASS::erase(const Key &key) {
     // TODO join ?
 }
 
-IMLAB_BTREE_TEMPL typename IMLAB_BTREE_CLASS::Fix IMLAB_BTREE_CLASS::root_fix() {
-    if (root)
-        return this->fix(root);
-    return {};
-}
-
 IMLAB_BTREE_TEMPL typename IMLAB_BTREE_CLASS::ExclusiveFix IMLAB_BTREE_CLASS::root_fix_exclusive() {
     if (root)
         return this->fix_exclusive(*root);

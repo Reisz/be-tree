@@ -46,6 +46,20 @@ BUFFER_MANAGER_TEMPL typename BUFFER_MANAGER_CLASS::Page *BUFFER_MANAGER_CLASS::
     return p;
 }
 
+BUFFER_MANAGER_TEMPL bool BUFFER_MANAGER_CLASS::in_memory(uint64_t page_id) const {
+    auto it = pages.find(page_id);
+    if (it != pages.end())
+        return it->second.data_state != Page::Writing;
+    return false;
+}
+
+BUFFER_MANAGER_TEMPL bool BUFFER_MANAGER_CLASS::is_dirty(uint64_t page_id) const {
+    auto it = pages.find(page_id);
+    if (it != pages.end())
+        return it->second.data_state == Page::Dirty;
+    return false;
+}
+
 BUFFER_MANAGER_TEMPL void BUFFER_MANAGER_CLASS::unfix(Page *page) {
     std::unique_lock<std::mutex> lock(mutex);
     page->unfix();

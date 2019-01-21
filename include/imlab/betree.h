@@ -61,6 +61,7 @@ class BeTree : Segment<page_size> {
     void erase(const Key &key);
 
     uint64_t size() const;
+    uint64_t size_pending() const;
     uint64_t capacity() const;
 
  private:
@@ -70,8 +71,8 @@ class BeTree : Segment<page_size> {
     uint64_t next_page_id = 0;
     uint64_t next_timestamp = 1;
 
-    uint64_t count = 0;
-    uint64_t leaf_count = 0;
+    uint64_t count = 0, leaf_count = 0;
+    int64_t pending = 0;
 
     // get exclusive fix, will always return fix of valid node
     ExclusiveFix root_fix_exclusive();

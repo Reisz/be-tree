@@ -236,15 +236,21 @@ IMLAB_BETREE_TEMPL void IMLAB_BETREE_CLASS::insert(const Key &key, const T &valu
         inner.messages().template insert<Insert>({key, next_timestamp}, value);
     }
     ++next_timestamp;
+    ++pending;
     root.set_dirty();
 }
 
 IMLAB_BETREE_TEMPL void IMLAB_BETREE_CLASS::erase(const Key &key) {
-    // add_message<Erase>(key);
+    // TODO
 }
 
 IMLAB_BETREE_TEMPL uint64_t IMLAB_BETREE_CLASS::size() const {
     return count;
+}
+
+IMLAB_BETREE_TEMPL uint64_t IMLAB_BETREE_CLASS::size_pending() const {
+    assert(pending >= 0 || count >= -pending);
+    return count + pending;
 }
 
 IMLAB_BETREE_TEMPL uint64_t IMLAB_BETREE_CLASS::capacity() const {

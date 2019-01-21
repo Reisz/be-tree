@@ -18,7 +18,8 @@ TEST(BeTree, InsertEmptyTree) {
     BeTreeTest<1024, 256> tree(0, buffer_manager);
 
     tree.insert(12, 34);
-    EXPECT_EQ(1, tree.size());
+    EXPECT_LE(tree.size(), tree.size_pending());
+    EXPECT_EQ(1, tree.size_pending());
 
     // auto it = tree.find(12);
     // ASSERT_NE(tree.end(), it);

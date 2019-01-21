@@ -73,10 +73,11 @@ class RbTree {
 
     size_t size() const;
 
+    // never invalidates iterators
     void erase(const_iterator pos);
     void erase(const_iterator start, const_iterator end);
 
-    // three insert variants (void, copy, move)
+    // three insert variants (void, copy, move), invalidates iterators when compression happens
     template<size_t I> std::enable_if_t<std::is_same_v<void, element_t<I>>, bool> insert(const Key &key);
     template<size_t I> bool insert(const Key &key, const element_t<I> &value);
     template<size_t I> bool insert(const Key &key, element_t<I> &&value);

@@ -5,6 +5,8 @@
 #define INCLUDE_IMLAB_BETREE_H_
 
 #include <functional>
+#include <limits>
+#include <algorithm>
 #include "imlab/segment.h"
 #include "imlab/rbtree.h"
 // ---------------------------------------------------------------------------------------------------
@@ -30,10 +32,10 @@ class BeTree : Segment<page_size> {
     class LeafNode;
 
     struct MessageKey;
-    typedef T (*Upsert) (T &&);
+    typedef T (*upsert_t) (T &&);
     using MessageMap = RbTree<MessageKey, epsilon, std::less<MessageKey>,
-        T, T, Upsert, void>;
-    enum class Message : uint8_t {
+        T, T, upsert_t, void>;
+    enum Message {
         Insert, InsertOrAssign, Upsert, Erase
     };
 
@@ -53,9 +55,9 @@ class BeTree : Segment<page_size> {
     iterator find(const Key &key);
 
     void insert(const Key &key, const T &value);
-    void insert(const Key &key, T &&value);
-    void insert_or_assign(const Key &key, const T &value);
-    void insert_or_assign(const Key &key, T &&value);
+    // void insert(const Key &key, T &&value);
+    // void insert_or_assign(const Key &key, const T &value);
+    // void insert_or_assign(const Key &key, T &&value);
     void erase(const Key &key);
 
     uint64_t size() const;
@@ -66,6 +68,7 @@ class BeTree : Segment<page_size> {
 
     std::optional<uint64_t> root;
     uint64_t next_page_id = 0;
+    uint64_t next_timestamp = 1;
 
     uint64_t count = 0;
     uint64_t leaf_count = 0;
@@ -73,7 +76,10 @@ class BeTree : Segment<page_size> {
     // get exclusive fix, will always return fix of valid node
     ExclusiveFix root_fix_exclusive();
     ExclusiveFix new_leaf();
-    ExclusiveFix new_inner(const Node &child);
+    ExclusiveFix new_inner(uint16_t level);
+
+    void split(ExclusiveFix &parent, ExclusiveFix &child, const Key &key);
+    void flush();
 };
 
 IMLAB_BETREE_TEMPL struct IMLAB_BETREE_CLASS::Node {
@@ -90,16 +96,22 @@ IMLAB_BETREE_TEMPL class IMLAB_BETREE_CLASS::InnerNode : public Node {
     static constexpr uint32_t kCapacity =
         (page_size - sizeof(Node) - sizeof(uint64_t) - epsilon) / (sizeof(Key) + sizeof(uint64_t));
 
-    constexpr InnerNode(const Node &child);
+    constexpr InnerNode(uint16_t level);
 
+    uint64_t begin() const;
     uint64_t lower_bound(const Key &key) const;
+    uint64_t upper_bound(const Key &key) const;
     bool full() const;
 
+    const MessageMap &messages() const;
+    MessageMap &messages();
+
+    void init(uint64_t left);
     void insert(const Key &key, uint64_t split_page);
     Key split(InnerNode &other);
 
  private:
-    MessageMap messages;
+    MessageMap msgs;
     Key keys[kCapacity];
     uint64_t children[kCapacity];
     uint64_t right_child;
@@ -107,14 +119,14 @@ IMLAB_BETREE_TEMPL class IMLAB_BETREE_CLASS::InnerNode : public Node {
 
 IMLAB_BETREE_TEMPL class IMLAB_BETREE_CLASS::LeafNode : public Node {
  public:
-    using next_ptr = std::optional<uint64_t>;
     static constexpr uint32_t kCapacity =
-        (page_size - sizeof(Node) - sizeof(next_ptr)) / (sizeof(Key) + sizeof(T));
+        (page_size - sizeof(Node)) / (sizeof(Key) + sizeof(T));
 
     constexpr LeafNode();
 
     // returns first index where keys[i] >= key
     uint32_t lower_bound(const Key &key) const;
+    uint32_t upper_bound(const Key &key) const;
     const T &at(uint32_t idx) const;
     T &at(uint32_t idx);
     bool is_equal(const Key &key, uint32_t idx) const;
@@ -134,7 +146,6 @@ IMLAB_BETREE_TEMPL class IMLAB_BETREE_CLASS::LeafNode : public Node {
  private:
     Key keys[kCapacity];
     T values[kCapacity];
-    next_ptr next;
 };
 
 IMLAB_BETREE_TEMPL struct IMLAB_BETREE_CLASS::CoupledFixes {
@@ -144,12 +155,28 @@ IMLAB_BETREE_TEMPL struct IMLAB_BETREE_CLASS::CoupledFixes {
 };
 
 IMLAB_BETREE_TEMPL struct IMLAB_BETREE_CLASS::MessageKey {
+    static constexpr Compare comp{};
+
     Key key;
     uint64_t timestamp;
 
-    friend bool operator<(const MessageKey &a, const MessageKey &b);
-    friend bool operator<(const Key &key, const MessageKey &mk);
-    friend bool operator<(const MessageKey &mk, const Key &key);
+
+    friend bool operator<(const MessageKey &a, const MessageKey &b) {
+        return comp(a.key, b.key) || (!comp(b.key, b.key) && a.timestamp < b.timestamp);
+    }
+    friend bool operator<(const Key &key, const MessageKey &mk) {
+        return comp(key, mk.key);
+    }
+    friend bool operator<(const MessageKey &mk, const Key &key) {
+        return comp(mk.key, key);
+    }
+
+    static constexpr MessageKey min(const Key &key) {
+        return {key, 0};
+    }
+    static constexpr MessageKey max(const Key &key) {
+        return {key, std::numeric_limits<uint64_t>::max()};
+    }
 };
 
 }  // namespace imlab

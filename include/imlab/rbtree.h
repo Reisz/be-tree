@@ -56,6 +56,16 @@ class RbTree {
     }
     static constexpr auto sizes = get_sizes<sizeof...(Ts)>();
 
+    template <size_t N, std::size_t... I>
+    static constexpr size_t max_size_impl(std::index_sequence<I...>) {
+        return std::max({sizeof(Value<I>)...});
+    }
+    template <size_t N, typename Indices = std::make_index_sequence<N>>
+    static constexpr uint64_t max_size() {
+        return max_size_impl<N>(Indices{});
+    }
+    static constexpr size_t kMaxValueSize = max_size<sizeof...(Ts)>();
+
     static constexpr size_t kDataSize = page_size - sizeof(Header);
 
  public:
@@ -72,6 +82,7 @@ class RbTree {
     const_iterator find(const Key &key) const;
 
     size_t size() const;
+    size_t capacity() const;
 
     // never invalidates iterators
     void erase(const_iterator pos);

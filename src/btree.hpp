@@ -420,7 +420,7 @@ IMLAB_BTREE_TEMPL typename IMLAB_BTREE_CLASS::CoupledFixes IMLAB_BTREE_CLASS::ex
 }
 
 IMLAB_BTREE_TEMPL typename IMLAB_BTREE_CLASS::CoupledFixes IMLAB_BTREE_CLASS::insert_full_lock_rec_split(const Key &key) {
-    std::vector<typename BufferManager<page_size>::ExclusiveFix> fixes;
+    std::vector<ExclusiveFix> fixes;
     fixes.push_back(root_fix_exclusive());
 
     while (!fixes.back().template as<Node>()->is_leaf())

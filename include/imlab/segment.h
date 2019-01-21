@@ -26,6 +26,10 @@ template <size_t page_size> class Segment {
         return fix.page_id() & ((1ull << 48) - 1);
     }
 
+    bool is_dirty(uint64_t page_id) const {
+        return manager.is_dirty(segment_page_id(page_id));
+    }
+
  private:
     BufferManager<page_size>& manager;
     uint64_t segment_id_mask;

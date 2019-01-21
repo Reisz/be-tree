@@ -80,7 +80,9 @@ class BeTree : Segment<page_size> {
     ExclusiveFix new_inner(uint16_t level);
 
     void split(ExclusiveFix &parent, ExclusiveFix &child, const Key &key);
-    void flush();
+    // flush starting at the root node until there is space for at least one message
+    // fixes the entire path currently being flushed and splits recursively as necessary
+    ExclusiveFix flush(ExclusiveFix root);
 };
 
 IMLAB_BETREE_TEMPL struct IMLAB_BETREE_CLASS::Node {
@@ -104,8 +106,12 @@ IMLAB_BETREE_TEMPL class IMLAB_BETREE_CLASS::InnerNode : public Node {
     uint64_t upper_bound(const Key &key) const;
     bool full() const;
 
+    uint64_t at(uint32_t idx) const;
+    const Key &key(uint32_t idx) const;
+
+    bool message_insert(const MessageKey &key, const T &value);
     const MessageMap &messages() const;
-    MessageMap &messages();
+    void erase_map(typename MessageMap::const_iterator it);
 
     void init(uint64_t left);
     void insert(const Key &key, uint64_t split_page);
@@ -164,12 +170,6 @@ IMLAB_BETREE_TEMPL struct IMLAB_BETREE_CLASS::MessageKey {
 
     friend bool operator<(const MessageKey &a, const MessageKey &b) {
         return comp(a.key, b.key) || (!comp(b.key, b.key) && a.timestamp < b.timestamp);
-    }
-    friend bool operator<(const Key &key, const MessageKey &mk) {
-        return comp(key, mk.key);
-    }
-    friend bool operator<(const MessageKey &mk, const Key &key) {
-        return comp(mk.key, key);
     }
 
     static constexpr MessageKey min(const Key &key) {

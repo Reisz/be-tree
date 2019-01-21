@@ -88,6 +88,10 @@ RBTREE_TEMPL size_t RBTREE_CLASS::size() const {
     return header.node_count - header.deleted;
 }
 
+RBTREE_TEMPL size_t RBTREE_CLASS::capacity() const {
+    return (header.free_space + header.deleted * sizeof(Node)) / (sizeof(Node) + kMaxValueSize);
+}
+
 RBTREE_TEMPL void RBTREE_CLASS::erase(const_iterator it) {
     assert(it.tree == this);
     auto node = ref(it.ref.i);

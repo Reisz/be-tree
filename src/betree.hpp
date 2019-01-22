@@ -5,6 +5,8 @@
 #define SRC_BETREE_HPP_
 
 #include <algorithm>
+#include <utility>
+#include <vector>
 #include "imlab/betree.h"
 // ---------------------------------------------------------------------------------------------------
 namespace imlab {
@@ -49,6 +51,33 @@ IMLAB_BETREE_TEMPL const Key &IMLAB_BETREE_CLASS::InnerNode::key(uint32_t idx) c
 
 IMLAB_BETREE_TEMPL bool IMLAB_BETREE_CLASS::InnerNode::message_insert(const MessageKey &key, const T &value) {
     if (!msgs.template insert<Insert>(key, value))
+        return false;
+
+    if (comp(key.key, keys[0]))
+        keys[0] = key.key;
+    return true;
+}
+
+IMLAB_BETREE_TEMPL bool IMLAB_BETREE_CLASS::InnerNode::message_insert_or_assign(const MessageKey &key, const T &value) {
+    if (!msgs.template insert<InsertOrAssign>(key, value))
+        return false;
+
+    if (comp(key.key, keys[0]))
+        keys[0] = key.key;
+    return true;
+}
+
+IMLAB_BETREE_TEMPL bool IMLAB_BETREE_CLASS::InnerNode::message_upsert(const MessageKey &key, upsert_t value) {
+    if (!msgs.template insert<Upsert>(key, value))
+        return false;
+
+    if (comp(key.key, keys[0]))
+        keys[0] = key.key;
+    return true;
+}
+
+IMLAB_BETREE_TEMPL bool IMLAB_BETREE_CLASS::InnerNode::message_erase(const MessageKey &key) {
+    if (!msgs.template insert<Erase>(key))
         return false;
 
     if (comp(key.key, keys[0]))
@@ -119,7 +148,7 @@ IMLAB_BETREE_TEMPL Key IMLAB_BETREE_CLASS::InnerNode::split(InnerNode &other) {
     this->count = start;
 
     // split messages
-    for (auto it = msgs.upper_bound(MessageKey::min(keys[start])); it != msgs.end(); ++it) {
+    for (auto it = msgs.upper_bound(MessageKey::min(keys[start])); it != msgs.end();) {
         switch (it->type()) {
             case Insert:
                 other.message_insert(it->key(), it->template as<Insert>());
@@ -137,7 +166,9 @@ IMLAB_BETREE_TEMPL Key IMLAB_BETREE_CLASS::InnerNode::split(InnerNode &other) {
                 assert(false);
         }
 
-        msgs.erase(it);
+        auto eit = it;
+        ++it;
+        msgs.erase(eit);
     }
 
     return keys[start];
@@ -249,9 +280,7 @@ IMLAB_BETREE_TEMPL void IMLAB_BETREE_CLASS::insert(const Key &key, const T &valu
 
     if (!root.template as<InnerNode>()->message_insert({key, next_timestamp}, value)) {
         root = flush(std::move(root));
-        auto &inner = *root.template as<InnerNode>();
-
-        if (!inner.message_insert({key, next_timestamp}, value))
+        if (!root.template as<InnerNode>()->message_insert({key, next_timestamp}, value))
             assert(false);
     }
     ++next_timestamp;
@@ -342,13 +371,12 @@ IMLAB_BETREE_CLASS::flush(ExclusiveFix root) {
 
     bool can_flush = false;
     uint32_t prev_flush_amount = 1;
-    std::vector<std::pair<typename BeTree::MessageMap::const_iterator, typename BeTree::MessageMap::const_iterator>> flushes;
+    std::vector<std::pair<typename BeTree::MessageKey, typename BeTree::MessageKey>> flushes;
 
     auto get_rb_iters = [](InnerNode &inner, auto i) {
         return std::make_pair(
             i > 0 ? inner.messages().lower_bound(MessageKey::min(inner.key(i - 1))) : inner.messages().begin(),
-            i < inner.count ? inner.messages().lower_bound(MessageKey::min(inner.key(i))) : inner.messages().end()
-        );
+            i < inner.count ? inner.messages().lower_bound(MessageKey::min(inner.key(i))) : inner.messages().end());
     };
 
     // get a vector of required flushes
@@ -370,64 +398,105 @@ IMLAB_BETREE_CLASS::flush(ExclusiveFix root) {
             }
         }
         assert(max_flush_amount > 0);
-
-        flushes.push_back(get_rb_iters(candidate));
+        auto iters = get_rb_iters(inner, candidate);
+        flushes.emplace_back(iters.first->key(), iters.second != inner.messages().end() ? iters.second->key() : inner.messages().back().key());
 
         // check flushability
-        if (fixes.back().template as<Node>()->is_leaf()) {
+        auto new_fix = this->fix_exclusive(inner.at(candidate));
+        if (new_fix.template as<Node>()->is_leaf()) {
             can_flush = true;
         } else {
-            can_flush = fixes.back().template as<InnerNode>()->messages().capacity() >= prev_flush_amount;
+            can_flush = new_fix.template as<InnerNode>()->messages().capacity() >= prev_flush_amount;
             prev_flush_amount = max_flush_amount;
         }
 
+        // flush target should not be in vector
         if (!can_flush)
-            fixes.push_back(this->fix_exclusive(inner.at(candidate)));
+            fixes.push_back(std::move(new_fix));
     }
 
     // do the flushes
     auto flit = flushes.rbegin();
-    for (auto it = fixes.rbegin(); it + 1 != fixes.rend(); ++it, ++flit) {
-        if (it-> template as<Node>()->is_leaf()) {
-            auto &leaf = *it->template as<LeafNode>();
-            auto &inner = *(it + 1)->template as<InnerNode>();
+    for (auto it = fixes.rbegin(); it != fixes.rend(); ++flit) {  // it increment at the end
+        auto *source = it->template as<InnerNode>();
 
-            auto iters = *flit;
-            for(; iters.first != iters.second;) {
-                const auto &key = iters.first->key().key;
-                uint32_t idx = leaf.lower_bound(key);
+        ExclusiveFix target;
+        auto fl_begin = source->messages().lower_bound(flit->first);
+        auto fl_end = source->messages().lower_bound(flit->second);
+        while (fl_begin != fl_end) {  // flit->first increment at the end
+            const Key &key = fl_begin->key().key;
 
-                // TODO split & merge
+            uint64_t current_target = source->lower_bound(key);
+            if (!target.data() || this->page_id(target) != current_target)
+                target = this->fix_exclusive(current_target);
 
-                switch (iters.first->type()) {
+            if (target.template as<Node>()->is_leaf()) {
+                auto *leaf = target.template as<LeafNode>();
+                uint32_t idx = leaf->lower_bound(key);
+
+                auto rec_split = [&]() {
+                    assert(fixes.size() > 0);
+
+                    size_t it;
+                    for (it = fixes.size() - 1; it > 0; --it) {
+                        if (!fixes[it].template as<InnerNode>()->full())
+                            break;
+                    }
+
+                    if (it == 0 && fixes.front().template as<InnerNode>()->full()) {
+                        ExclusiveFix dummy;
+                        split(dummy, fixes.front(), key);
+                    }
+                    for (; it + 1 < fixes.size(); ++it)
+                        split(fixes[it], fixes[it + 1], key);
+                    split(fixes.back(), target, key);
+
+                    source = fixes.back().template as<InnerNode>();
+                    leaf = target.template as<LeafNode>();
+                    idx = leaf->lower_bound(key);
+
+                    fl_begin = source->messages().lower_bound(flit->first);
+                    fl_end = source->messages().lower_bound(flit->second);
+                };
+
+                switch (fl_begin->type()) {
                     case Insert:
-                        if (!leaf.is_equal(key, idx)) {
-                            leaf.make_space(key, idx) = iters.first->template as<Insert>();
+                        if (!leaf->is_equal(key, idx)) {
+                            if (leaf->full())
+                                rec_split();
+
+                            leaf->make_space(key, idx) = fl_begin->template as<Insert>();
                             it->set_dirty();
                             ++count;
                         }
                         --pending;
                         break;
                     case InsertOrAssign:
-                        if (leaf.is_equal(key, idx)) {
-                            leaf.at(idx) = iters.first->template as<InsertOrAssign>();
+                        if (leaf->is_equal(key, idx)) {
+                            if (leaf->full())
+                                rec_split();
+
+                            leaf->at(idx) = fl_begin->template as<InsertOrAssign>();
                             it->set_dirty();
                         } else {
-                            leaf.make_space(key, idx) = iters.first->template as<InsertOrAssign>();
+                            if (leaf->full())
+                                rec_split();
+
+                            leaf->make_space(key, idx) = fl_begin->template as<InsertOrAssign>();
                             it->set_dirty();
                             ++count;
                         }
                         --pending;
                         break;
                     case Upsert:
-                        if (leaf.is_equal(key, idx)) {
-                            leaf.at(idx) = iters.first->template as<Upsert>()(std::move(leaf.at(idx)));
+                        if (leaf->is_equal(key, idx)) {
+                            leaf->at(idx) = fl_begin->template as<Upsert>()(std::move(leaf->at(idx)));
                             it->set_dirty();
                         }
                         break;
                     case Erase:
-                        if (leaf.is_equal(key, idx)) {
-                            leaf.erase(idx);
+                        if (leaf->is_equal(key, idx)) {
+                            leaf->erase(idx);
                             it->set_dirty();
                             --count;
                         }
@@ -436,26 +505,35 @@ IMLAB_BETREE_CLASS::flush(ExclusiveFix root) {
                     default:
                         assert(false);
                 }
-
-                auto eit = iters.first;
-                ++iters.first;
-                inner.erase_map(eit);
+            } else {  // target is inner node
+                auto &inner = *target.template as<InnerNode>();
+                switch (fl_begin->type()) {
+                    case Insert:
+                        inner.message_insert(fl_begin->key(), fl_begin->template as<Insert>());
+                        break;
+                    case InsertOrAssign:
+                        inner.message_insert_or_assign(fl_begin->key(), fl_begin->template as<InsertOrAssign>());
+                        break;
+                    case Upsert:
+                        inner.message_upsert(fl_begin->key(), fl_begin->template as<Upsert>());
+                        break;
+                    case Erase:
+                        inner.message_erase(fl_begin->key());
+                        break;
+                    default:
+                        assert(false);
+                }
             }
 
-            (it + 1)->set_dirty();
-        } else {
-            auto &child = *it->template as<InnerNode>();
-            auto &parent = *(it + 1)->template as<InnerNode>();
-
-            auto iters = *flit;
-            for(; iters.first != iters.second;) {
-
-
-                auto eit = iters.first;
-                ++iters.first;
-                parent.erase_map(eit);
-            }
+            auto eit = fl_begin;
+            ++fl_begin;
+            source->erase_map(eit);
         }
+        it->set_dirty();
+        auto eit = it.base() - 1;
+        ++it;
+        if (fixes.size() > 1)
+            fixes.erase(eit);
     }
 
     return std::move(fixes.front());

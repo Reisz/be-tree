@@ -5,6 +5,7 @@
 #define INCLUDE_IMLAB_RBTREE_H_
 
 #include <functional>
+#include <algorithm>
 #include <limits>
 #include <tuple>
 // ---------------------------------------------------------------------------------------------------
@@ -76,6 +77,9 @@ class RbTree {
 
     const_iterator begin() const;
     const_iterator end() const;
+
+    const_reference front() const;
+    const_reference back() const;
 
     const_iterator lower_bound(const Key &key) const;
     const_iterator upper_bound(const Key &key) const;

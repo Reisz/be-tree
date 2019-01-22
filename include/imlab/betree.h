@@ -110,6 +110,10 @@ IMLAB_BETREE_TEMPL class IMLAB_BETREE_CLASS::InnerNode : public Node {
     const Key &key(uint32_t idx) const;
 
     bool message_insert(const MessageKey &key, const T &value);
+    bool message_insert_or_assign(const MessageKey &key, const T &value);
+    bool message_erase(const MessageKey &key);
+    bool message_upsert(const MessageKey &key, upsert_t value);
+
     const MessageMap &messages() const;
     void erase_map(typename MessageMap::const_iterator it);
 

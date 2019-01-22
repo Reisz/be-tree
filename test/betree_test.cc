@@ -41,7 +41,7 @@ TEST(BeTree, InsertSplitRootLeaf) {
 }
 
 template<size_t size, size_t e> constexpr auto insert_amount =
-    BeTreeTest<size, e>::LeafNode::kCapacity * BeTreeTest<size, e>::InnerNode::kCapacity * BeTreeTest<size, e>::InnerNode::kCapacity;
+    BeTreeTest<size, e>::LeafNode::kCapacity * BeTreeTest<size, e>::InnerNode::kCapacity * 2;
 
 TEST(BeTree, MultipleInserts) {
     imlab::BufferManager<1024> buffer_manager{10};

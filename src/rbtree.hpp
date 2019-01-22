@@ -35,6 +35,30 @@ RBTREE_TEMPL typename RBTREE_CLASS::const_iterator RBTREE_CLASS::end() const {
     return const_iterator(this, 0);
 }
 
+RBTREE_TEMPL typename RBTREE_CLASS::const_reference RBTREE_CLASS::front() const {
+    auto current = ref(header.root_node);
+
+    auto left = current;
+    while (left) {
+        current = left;
+        left = ref(left->left);
+    }
+
+    return const_reference(this, current);
+}
+
+RBTREE_TEMPL typename RBTREE_CLASS::const_reference RBTREE_CLASS::back() const {
+    auto current = ref(header.root_node);
+
+    auto right = current;
+    while (right) {
+        current = right;
+        right = ref(right->right);
+    }
+
+    return const_reference(this, current);
+}
+
 RBTREE_TEMPL typename RBTREE_CLASS::const_iterator RBTREE_CLASS::lower_bound(const Key &key) const {
     auto current = ref(header.root_node);
 
@@ -412,6 +436,7 @@ RBTREE_TEMPL void RBTREE_CLASS::compress() {
         } else if (node_move) {
             node_pointer target = i - node_move;
             pointer val_target = node->value + data_move;
+            node->value = val_target;
 
             auto parent = ref(node->parent), left = ref(node->left), right = ref(node->right);
             if (parent)
@@ -430,7 +455,10 @@ RBTREE_TEMPL void RBTREE_CLASS::compress() {
     }
 
     header.node_count -= header.deleted;
+    header.data_start = ref(header.node_count)->value;
     header.deleted = 0;
+
+    assert(header.data_start - header.node_count * sizeof(Node) == header.free_space);
 }
 
 RBTREE_TEMPL template<typename T> inline T &RBTREE_CLASS::value_at(pointer i) {

@@ -428,17 +428,18 @@ IMLAB_BTREE_TEMPL typename IMLAB_BTREE_CLASS::CoupledFixes IMLAB_BTREE_CLASS::in
 
     auto it = fixes.rbegin();
     auto split_it = [this, &fixes, &key, &it] () {
-        ExclusiveFix dummy = {};
+        ExclusiveFix dummy;
         it + 1 == fixes.rend() ? split(dummy, *it, key) : split(*(it + 1), *it, key);
     };
 
     if (it->template as<LeafNode>()->full()) {
-        split_it();
         for (++it; it != fixes.rend(); ++it) {
             if (!it->template as<InnerNode>()->full())
                 break;
-            split_it();
         }
+        for (--it; it != fixes.rbegin(); --it)
+            split_it();
+        split_it();
     }
 
     if (fixes.size() > 1)

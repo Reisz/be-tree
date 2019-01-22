@@ -35,24 +35,23 @@ static constexpr size_t kRangeStep = (kRangeEnd - kRangeStart) / kRangeSteps;
             end = std::chrono::steady_clock::now();\
             ++times;\
         } while ((result = std::chrono::duration <double, std::micro>(end - start).count()) < kMaxBenchTime);\
-        std::cout << range << ',' << result / times << std::endl;\
+        std::cout << range << ',' << std::fixed << result / times << std::endl;\
     }\
 } while (false)
 
 #define B_TREE_BENCH(name, page_size) do {\
-    std::cout << "BTree<" << page_size << '>' << std::endl;\
+    std::cout << "#" #name "$BTree<" #page_size ">" << std::endl;\
     void (*bench)(size_t) = name<page_size, imlab::BTree<uint64_t, uint64_t, page_size>>;\
-    SINGLE_BENCH(bench);\
+    SINGLE_BENCH( bench);\
 } while (false)
 
 #define BE_TREE_BENCH(name, page_size, epsilon) do {\
-    std::cout << "BeTree<" << page_size << ',' << epsilon << '>' << std::endl;\
+    std::cout << "#" #name "$BeTree<" #page_size "," #epsilon ">" << std::endl;\
     void (*bench)(size_t) = name<page_size, imlab::BeTree<uint64_t, uint64_t, page_size, epsilon>>;\
     SINGLE_BENCH(bench);\
 } while (false)
 
 #define BENCH(name) do {\
-    std::cout << #name << std::endl;\
     B_TREE_BENCH(name, 256);\
     B_TREE_BENCH(name, 512);\
     B_TREE_BENCH(name, 1024);\

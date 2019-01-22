@@ -2,6 +2,9 @@
 // IMLAB
 // ---------------------------------------------------------------------------
 #include "benchmark/benchmark.h"
+#include "imlab/buffer_manager.h"
+#include "imlab/btree.h"
+#include "imlab/betree.h"
 // ---------------------------------------------------------------------------
 namespace {
 // ---------------------------------------------------------------------------
@@ -21,11 +24,23 @@ void BM_MeaningfulName(benchmark::State &state) {
     // Use user-defined counters if you want to track something else.
     state.counters["user_defined_counter"] = 42;
 }
+
+volatile uint16_t segment = 0;
+void BM_BeTreeLinearInsert(benchmark::State &state) {
+    imlab::BufferManager<1024> manager{10};
+    imlab::BeTree<uint64_t, uint64_t, 1024, 255> tree{segment++, manager};
+
+    for (auto _ : state) {
+        for (uint64_t i = 0; i < state.range(0); ++i)
+            tree.insert(i, i);
+        benchmark::DoNotOptimize(tree);
+    }
+};
 // ---------------------------------------------------------------------------
 }  // namespace
 // ---------------------------------------------------------------------------
-BENCHMARK(BM_MeaningfulName) 
-    -> Range(1 << 8, 1 << 10);
+BENCHMARK(BM_BeTreeLinearInsert)
+    -> Range(1 << 8, 1 << 20);
 // ---------------------------------------------------------------------------
 int main(int argc, char **argv) {
     // Your could load TPCH into global vectors here

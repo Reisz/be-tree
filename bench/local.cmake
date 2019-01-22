@@ -10,3 +10,10 @@ target_link_libraries(
     benchmark
     gflags
     Threads::Threads)
+
+
+add_executable(bm_trees ${CMAKE_SOURCE_DIR}/bench/bm_trees.cc)
+
+target_link_libraries(
+    bm_trees
+    imlab)

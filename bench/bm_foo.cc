@@ -28,9 +28,9 @@ void BM_MeaningfulName(benchmark::State &state) {
 volatile uint16_t segment = 0;
 void BM_BeTreeLinearInsert(benchmark::State &state) {
     imlab::BufferManager<1024> manager{10};
-    imlab::BeTree<uint64_t, uint64_t, 1024, 255> tree{segment++, manager};
-
     for (auto _ : state) {
+        imlab::BeTree<uint64_t, uint64_t, 1024, 255> tree{segment++, manager};
+
         for (uint64_t i = 0; i < state.range(0); ++i)
             tree.insert(i, i);
         benchmark::DoNotOptimize(tree);

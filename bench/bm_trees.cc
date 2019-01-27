@@ -3,6 +3,7 @@
 #include "imlab/buffer_manager.h"
 #include "imlab/btree.h"
 #include "imlab/betree.h"
+#include "imlab/infra/random.h"
 // ---------------------------------------------------------------------------
 namespace {
 // ---------------------------------------------------------------------------
@@ -14,21 +15,6 @@ template<size_t page_size, typename T> void BM_LinearInsert(size_t max) {
     asm volatile("" : "+m" (tree));
 }
 
-// https://stackoverflow.com/a/1640399
-uint64_t xorshf96() {
-    static uint64_t x = 123456789, y = 362436069, z = 521288629;
-
-    x ^= x << 16;
-    x ^= x >> 5;
-    x ^= x << 1;
-
-    uint64_t t = x;
-    x = y;
-    y = z;
-    z = t ^ x ^ y;
-
-    return z;
-}
 template<size_t page_size, typename T> void BM_RandomInsert(size_t max) {
     imlab::BufferManager<page_size> manager{10};
     T tree{0, manager};

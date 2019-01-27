@@ -7,6 +7,7 @@
 #include <functional>
 #include <limits>
 #include <algorithm>
+#include <utility>
 #include "imlab/segment.h"
 #include "imlab/rbtree.h"
 // ---------------------------------------------------------------------------------------------------
@@ -38,6 +39,7 @@ class BeTree : Segment<page_size> {
     enum Message {
         Insert, InsertOrAssign, Upsert, Erase
     };
+    using MessageRange = std::pair<typename MessageMap::const_iterator, typename MessageMap::const_iterator>;
 
     using reference = T&;
     // using const_reference = const T&;
@@ -82,7 +84,9 @@ class BeTree : Segment<page_size> {
     void split(ExclusiveFix &parent, ExclusiveFix &child, const Key &key);
     // flush starting at the root node until there is space for at least one message
     // fixes the entire path currently being flushed and splits recursively as necessary
-    ExclusiveFix flush(ExclusiveFix root);
+    ExclusiveFix flush(ExclusiveFix root, size_t min_amount);
+    // find the best child to fulshu to, also immediately flushes to dirty childs if possible
+    std::pair<uint32_t, size_t> find_flush(ExclusiveFix &fix);
 };
 
 IMLAB_BETREE_TEMPL struct IMLAB_BETREE_CLASS::Node {
@@ -113,9 +117,11 @@ IMLAB_BETREE_TEMPL class IMLAB_BETREE_CLASS::InnerNode : public Node {
     bool message_insert_or_assign(const MessageKey &key, const T &value);
     bool message_erase(const MessageKey &key);
     bool message_upsert(const MessageKey &key, upsert_t value);
+    bool apply(typename MessageMap::const_iterator it);
 
-    const MessageMap &messages() const;
-    void erase_map(typename MessageMap::const_iterator it);
+    size_t map_capacity_bytes() const;
+    MessageRange map_get_range(uint32_t idx) const;
+    void map_erase(typename MessageMap::const_iterator it);
 
     void init(uint64_t left);
     void insert(const Key &key, uint64_t split_page);
@@ -124,8 +130,7 @@ IMLAB_BETREE_TEMPL class IMLAB_BETREE_CLASS::InnerNode : public Node {
  private:
     MessageMap msgs;
     Key keys[kCapacity];
-    uint64_t children[kCapacity];
-    uint64_t right_child;
+    uint64_t children[kCapacity + 1];
 };
 
 IMLAB_BETREE_TEMPL class IMLAB_BETREE_CLASS::LeafNode : public Node {
@@ -152,7 +157,7 @@ IMLAB_BETREE_TEMPL class IMLAB_BETREE_CLASS::LeafNode : public Node {
     // transfer half of the key/value pairs to `other`
     // update traversal pointers to insert `other_page`
     // returns pivot key for new page
-    Key split(LeafNode &other, uint64_t other_page);
+    Key split(LeafNode &other);
 
  private:
     Key keys[kCapacity];

@@ -85,8 +85,12 @@ class RbTree {
     const_iterator upper_bound(const Key &key) const;
     const_iterator find(const Key &key) const;
 
+    // element count of the tree
     size_t size() const;
-    size_t capacity() const;
+    // lower bound of free space in bytes
+    size_t capacity_bytes() const;
+    // size of value + node
+    template<size_t I> constexpr static size_t size_bytes();
 
     // never invalidates iterators
     void erase(const_iterator pos);
@@ -200,6 +204,8 @@ RBTREE_TEMPL class RBTREE_CLASS::const_reference {
 
     tag type() const;
     template<size_t I> const element_t<I> &as() const;
+
+    size_t size_bytes() const;
 
  private:
     const_reference(const RbTree *tree, node_pointer i)

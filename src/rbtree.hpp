@@ -112,8 +112,12 @@ RBTREE_TEMPL size_t RBTREE_CLASS::size() const {
     return header.node_count - header.deleted;
 }
 
-RBTREE_TEMPL size_t RBTREE_CLASS::capacity() const {
-    return (header.free_space + header.deleted * sizeof(Node)) / (sizeof(Node) + kMaxValueSize);
+RBTREE_TEMPL size_t RBTREE_CLASS::capacity_bytes() const {
+    return header.free_space + header.deleted * (sizeof(Node) + sizeof(Tag));
+}
+
+RBTREE_TEMPL template<size_t I> constexpr size_t RBTREE_CLASS::size_bytes() {
+    return sizeof(Node) + sizeof(Value<I>);
 }
 
 RBTREE_TEMPL void RBTREE_CLASS::erase(const_iterator it) {
@@ -491,6 +495,10 @@ RBTREE_TEMPL template<size_t I> const typename RBTREE_CLASS::template element_t<
     assert(type() == I);
     return tree->value_at<Value<I>>(tree->ref(i)->value).value;
 }
+
+RBTREE_TEMPL size_t RBTREE_CLASS::const_reference::size_bytes() const {
+    return sizeof(Node) + sizes[type()];
+}
 // ---------------------------------------------------------------------------------------------------
 RBTREE_TEMPL typename RBTREE_CLASS::const_iterator &RBTREE_CLASS::const_iterator::operator++() {
     auto current = tree->ref(ref.i);
@@ -516,7 +524,7 @@ RBTREE_TEMPL typename RBTREE_CLASS::const_iterator &RBTREE_CLASS::const_iterator
 
 RBTREE_TEMPL typename RBTREE_CLASS::const_iterator RBTREE_CLASS::const_iterator::operator++(int) {
     auto result = const_iterator(tree, ref.i);
-    ++this;
+    ++(*this);
     return result;
 }
 

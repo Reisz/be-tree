@@ -1,5 +1,5 @@
-#ifndef _INCLUDE_RANDOM_H_
-#define _INCLUDE_RANDOM_H_
+#ifndef INCLUDE_IMLAB_INFRA_RANDOM_H_
+#define INCLUDE_IMLAB_INFRA_RANDOM_H_
 
 #include <cstdint>
 
@@ -19,4 +19,4 @@ uint64_t xorshf96() {
     return z;
 }
 
-#endif  // _INCLUDE_RANDOM_H_
+#endif  // INCLUDE_IMLAB_INFRA_RANDOM_H_

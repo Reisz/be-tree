@@ -449,7 +449,8 @@ IMLAB_BETREE_CLASS::flush(ExclusiveFix root, size_t min_amount) {
                 };
                 auto split_leaf = [&]() {
                     auto new_leaf_fix = new_leaf();
-                    leaves.insert(std::make_pair(leaf->split(*new_leaf_fix.template as<LeafNode>()), LeafStorage {std::move(new_leaf_fix), false}));
+                    const auto &insert_key = leaf->split(*new_leaf_fix.template as<LeafNode>());
+                    leaves.insert(std::make_pair(insert_key, LeafStorage {std::move(new_leaf_fix), false}));
                     leaf_fix->set_dirty();
                     determine_leaf();
                 };

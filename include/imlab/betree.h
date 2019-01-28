@@ -8,6 +8,7 @@
 #include <limits>
 #include <algorithm>
 #include <utility>
+#include <vector>
 #include "imlab/segment.h"
 #include "imlab/rbtree.h"
 // ---------------------------------------------------------------------------------------------------
@@ -19,7 +20,7 @@ namespace imlab {
     BeTree<Key, T, page_size, epsilon, Compare>
 
 template<typename Key, typename T, size_t page_size, size_t epsilon, typename Compare = std::less<Key>>
-class BeTree : Segment<page_size> {
+class BeTree : private Segment<page_size> {
     struct CoupledFixes;
     using Fix = typename BufferManager<page_size>::Fix;
     using ExclusiveFix = typename BufferManager<page_size>::ExclusiveFix;
@@ -41,20 +42,22 @@ class BeTree : Segment<page_size> {
     };
     using MessageRange = std::pair<typename MessageMap::const_iterator, typename MessageMap::const_iterator>;
 
-    using reference = T&;
-    // using const_reference = const T&;
-    class iterator;
-    // class const_iterator;
+    // using reference = T&;
+    using const_reference = const T&;
+    // using pointer = T*;
+    using const_pointer = const T*;
+    // class iterator;
+    class const_iterator;
 
     BeTree(uint16_t segment_id, BufferManager<page_size> &manager)
         : Segment<page_size>(segment_id, manager) {}
 
-    iterator begin();
-    iterator end();
+    const_iterator begin() const;
+    const_iterator end() const;
 
-    iterator lower_bound(const Key &key);
-    iterator upper_bound(const Key &key);
-    iterator find(const Key &key);
+    const_iterator lower_bound(const Key &key) const;
+    const_iterator upper_bound(const Key &key) const;
+    const_iterator find(const Key &key) const;
 
     void insert(const Key &key, const T &value);
     // void insert(const Key &key, T &&value);
@@ -122,6 +125,7 @@ IMLAB_BETREE_TEMPL class IMLAB_BETREE_CLASS::InnerNode : public Node {
 
     size_t map_capacity_bytes() const;
     MessageRange map_get_range(uint32_t idx) const;
+    MessageRange map_get_key_range(const Key &key) const;
     void map_erase(typename MessageMap::const_iterator it);
 
     void init(uint64_t left);
@@ -188,6 +192,26 @@ IMLAB_BETREE_TEMPL struct IMLAB_BETREE_CLASS::MessageKey {
     static constexpr MessageKey max(const Key &key) {
         return {key, std::numeric_limits<uint64_t>::max()};
     }
+};
+
+IMLAB_BETREE_TEMPL class IMLAB_BETREE_CLASS::const_iterator {
+    friend class BeTree;
+
+ public:
+    const_iterator &operator++();
+    bool operator==(const const_iterator &other) const;
+    bool operator!=(const const_iterator &other) const;
+    const_reference operator*();
+    const_pointer operator->();
+
+ private:
+    const_iterator(const Segment<page_size> &segment, std::vector<Fix> fixes, typename MessageMap::const_iterator it, uint32_t idx)
+        : segment(segment), fixes(std::move(fixes)), it(it), idx(idx) {}
+
+    typename MessageMap::const_iterator it;
+    uint32_t idx;
+    const Segment<page_size> &segment;
+    std::vector<Fix> fixes;
 };
 
 }  // namespace imlab

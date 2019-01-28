@@ -14,7 +14,7 @@ template <size_t page_size> class Segment {
     constexpr Segment(uint16_t segment_id, BufferManager<page_size> &manager)
         : segment_id_mask(((uint64_t) segment_id) << 48), manager(manager) {}
 
-    typename BufferManager<page_size>::Fix fix(uint64_t page_id) {
+    typename BufferManager<page_size>::Fix fix(uint64_t page_id) const {
         return manager.fix(segment_page_id(page_id));
     }
 

@@ -22,10 +22,9 @@ TEST(BeTree, InsertEmptyTree) {
     EXPECT_LE(tree.size(), tree.size_pending());
     EXPECT_EQ(1, tree.size_pending());
 
-    // TODO
-    // auto it = tree.find(12);
-    // ASSERT_NE(tree.end(), it);
-    // ASSERT_EQ(34, *it);
+    auto it = tree.find(12);
+    ASSERT_NE(tree.end(), it);
+    ASSERT_EQ(34, *it);
 }
 
 TEST(BeTree, InsertSplitRootLeaf) {
@@ -38,7 +37,8 @@ TEST(BeTree, InsertSplitRootLeaf) {
     EXPECT_LE(tree.size(), tree.size_pending());
     EXPECT_EQ(i, tree.size_pending());
 
-    // TODO check iterators
+    for (i = 0; i <= BeTreeTest<1024, 256>::LeafNode::kCapacity; ++i)
+        ASSERT_EQ(i, *tree.find(i));
 }
 
 template<size_t size, size_t e> constexpr auto insert_amount =
@@ -54,10 +54,10 @@ TEST(BeTree, MultipleInserts) {
     EXPECT_LE(tree.size(), tree.size_pending());
     EXPECT_EQ(ia, tree.size_pending());
 
-    // ASSERT_EQ(tree.end(), tree.find(insert_amount<1024, 256>));
+    ASSERT_EQ(tree.end(), tree.find(insert_amount<1024, 256>));
     // ASSERT_EQ(tree.end(), tree.lower_bound(insert_amount<1024, 256>));
     // ASSERT_EQ(tree.end(), tree.upper_bound(insert_amount<1024, 256> - 1));
-    //
+
     // uint32_t i = 0;
     // for (auto j : tree)
     //     EXPECT_EQ(i++, j);

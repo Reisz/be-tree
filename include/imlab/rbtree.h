@@ -183,6 +183,8 @@ RBTREE_TEMPL class RBTREE_CLASS::const_iterator {
     friend class RbTree;
 
  public:
+    const_iterator() : tree(nullptr), ref(nullptr, 0) {}
+
     const_iterator &operator++();
     const_iterator operator++(int);
     bool operator==(const const_iterator &other) const;

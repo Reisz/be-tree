@@ -56,8 +56,8 @@ IMLAB_BETREE_TEMPL bool IMLAB_BETREE_CLASS::InnerNode::message_insert(const Mess
     if (!msgs.template insert<Insert>(key, value))
         return false;
 
-    if (comp(keys[this->count - 1], key.key))
-        keys[this->count - 1] = key.key;
+    if (comp(key.key, keys[0]))
+        keys[0] = key.key;
     return true;
 }
 
@@ -65,8 +65,8 @@ IMLAB_BETREE_TEMPL bool IMLAB_BETREE_CLASS::InnerNode::message_insert_or_assign(
     if (!msgs.template insert<InsertOrAssign>(key, value))
         return false;
 
-    if (comp(keys[this->count - 1], key.key))
-        keys[this->count - 1] = key.key;
+    if (comp(key.key, keys[0]))
+        keys[0] = key.key;
     return true;
 }
 
@@ -74,8 +74,8 @@ IMLAB_BETREE_TEMPL bool IMLAB_BETREE_CLASS::InnerNode::message_upsert(const Mess
     if (!msgs.template insert<Upsert>(key, value))
         return false;
 
-    if (comp(keys[this->count - 1], key.key))
-        keys[this->count - 1] = key.key;
+    if (comp(key.key, keys[0]))
+        keys[0] = key.key;
     return true;
 }
 
@@ -83,8 +83,8 @@ IMLAB_BETREE_TEMPL bool IMLAB_BETREE_CLASS::InnerNode::message_erase(const Messa
     if (!msgs.template insert<Erase>(key))
         return false;
 
-    if (comp(keys[this->count - 1], key.key))
-        keys[this->count - 1] = key.key;
+    if (comp(key.key, keys[0]))
+        keys[0] = key.key;
     return true;
 }
 
@@ -111,6 +111,10 @@ IMLAB_BETREE_TEMPL typename IMLAB_BETREE_CLASS::MessageRange IMLAB_BETREE_CLASS:
     return std::make_pair(
         idx > 0 ? msgs.upper_bound(MessageKey::max(keys[idx - 1])) : msgs.begin(),
         idx < this->count ? msgs.upper_bound(MessageKey::max(keys[idx])) : msgs.end());
+}
+
+IMLAB_BETREE_TEMPL typename IMLAB_BETREE_CLASS::MessageRange IMLAB_BETREE_CLASS::InnerNode::map_get_key_range(const Key &key) const {
+    return std::make_pair(msgs.lower_bound(MessageKey::min(key)), msgs.upper_bound(MessageKey::max(key)));
 }
 
 IMLAB_BETREE_TEMPL void IMLAB_BETREE_CLASS::InnerNode::map_erase(typename MessageMap::const_iterator it) {
@@ -258,6 +262,59 @@ IMLAB_BETREE_TEMPL Key IMLAB_BETREE_CLASS::LeafNode::split(LeafNode &other) {
     return keys[this->count - 1];  // NOTE maybe use inbetween key
 }
 // ---------------------------------------------------------o------------------------------------------
+IMLAB_BETREE_TEMPL typename IMLAB_BETREE_CLASS::const_iterator IMLAB_BETREE_CLASS::end() const {
+    return const_iterator(*this, {}, {}, 0);
+}
+
+IMLAB_BETREE_TEMPL typename IMLAB_BETREE_CLASS::const_iterator IMLAB_BETREE_CLASS::find(const Key &key) const {
+    if (!root)
+        return end();
+
+    std::vector<Fix> fixes;
+    fixes.push_back(this->fix(*root));
+
+    typename MessageMap::const_iterator earliest_insert;
+    uint32_t earliest_insert_stack_size = 0;
+    while (!fixes.back().template as<Node>()->is_leaf()) {
+        assert(fixes.back().template as<Node>()->count > 0);
+        auto &inner = *fixes.back().template as<InnerNode>();
+
+        for (auto iters = inner.map_get_key_range(key); iters.first != iters.second; ++iters.first) {
+            switch (iters.first->type()) {
+                case Insert:
+                    earliest_insert = iters.first;
+                    earliest_insert_stack_size = fixes.size();
+                    break;
+                case InsertOrAssign:
+                    return const_iterator(*this, std::move(fixes), iters.first, 0);
+                case Erase:
+                    return end();
+                case Upsert:
+                    break;  // TODO
+                default:
+                    assert(false);
+            }
+        }
+
+        fixes.push_back(this->fix(inner.lower_bound(key)));
+    }
+    assert(fixes.back().template as<Node>()->count > 0);
+
+    auto &leaf = *fixes.back().template as<LeafNode>();
+    auto i = leaf.lower_bound(key);
+
+    if (leaf.is_equal(key, i))
+        return const_iterator(*this, std::move(fixes), {}, i);
+
+    if (earliest_insert_stack_size) {
+        while (fixes.size() > earliest_insert_stack_size)
+            fixes.pop_back();
+        return const_iterator(*this, std::move(fixes), earliest_insert, 0);
+    }
+
+    return end();
+}
+
 IMLAB_BETREE_TEMPL void IMLAB_BETREE_CLASS::insert(const Key &key, const T &value) {
     auto root = root_fix_exclusive();
 
@@ -591,6 +648,37 @@ IMLAB_BETREE_TEMPL void IMLAB_BETREE_CLASS::insert_leaf(ExclusiveFix &root, cons
     fixes.back().set_dirty();
 
     root = std::move(fixes.front());
+}
+// ---------------------------------------------------------------------------------------------------
+IMLAB_BETREE_TEMPL bool IMLAB_BETREE_CLASS::const_iterator::operator==(const const_iterator &other) const {
+    if (fixes.size() != other.fixes.size())
+        return false;
+    if (fixes.size() == 0)
+        return true;
+    return  fixes.back().data() == other.fixes.back().data() && (it == other.it || idx == other.idx);
+}
+
+IMLAB_BETREE_TEMPL bool IMLAB_BETREE_CLASS::const_iterator::operator!=(const const_iterator &other) const {
+    return !(*this == other);
+}
+
+IMLAB_BETREE_TEMPL typename IMLAB_BETREE_CLASS::const_reference IMLAB_BETREE_CLASS::const_iterator::operator*() {
+    if (fixes.back().template as<Node>()->is_leaf()) {
+        return fixes.back().template as<LeafNode>()->at(idx);
+    } else {
+        switch (it->type()) {
+            case Insert:
+                return it->template as<Insert>();
+            case InsertOrAssign:
+                return it->template as<InsertOrAssign>();
+            default:
+                assert(false);
+        }
+    }
+}
+
+IMLAB_BETREE_TEMPL typename IMLAB_BETREE_CLASS::const_pointer IMLAB_BETREE_CLASS::const_iterator::operator->() {
+    return &**this;
 }
 // ---------------------------------------------------------------------------------------------------
 }  // namespace imlab

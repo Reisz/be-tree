@@ -113,7 +113,7 @@ RBTREE_TEMPL size_t RBTREE_CLASS::size() const {
 }
 
 RBTREE_TEMPL size_t RBTREE_CLASS::capacity_bytes() const {
-    return header.free_space + header.deleted * (sizeof(Node) + sizeof(Tag));
+    return header.free_space;
 }
 
 RBTREE_TEMPL template<size_t I> constexpr size_t RBTREE_CLASS::size_bytes() {
@@ -274,10 +274,10 @@ RBTREE_TEMPL template<size_t I> bool RBTREE_CLASS::insert(const Key &key, elemen
 
 RBTREE_TEMPL template<typename T> std::optional<typename RBTREE_CLASS::pointer>
 RBTREE_CLASS::insert(const Key &key) {
-    if (sizeof(T) + sizeof(Node) > header.free_space) {
+    if (sizeof(T) + sizeof(Node) > inner_space()) {
         if (header.deleted)
             compress();
-        if (sizeof(T) + sizeof(Node) > header.free_space)
+        if (sizeof(T) + sizeof(Node) > inner_space())
             return {};
     }
 
@@ -387,6 +387,10 @@ RBTREE_TEMPL void RBTREE_CLASS::rotate(node_ref node, typename Node::Child child
         m->parent = node;
 }
 
+RBTREE_TEMPL inline size_t RBTREE_CLASS::inner_space() const {
+    return header.data_start - header.node_count * sizeof(Node);
+}
+
 RBTREE_TEMPL inline typename RBTREE_CLASS::node_ref RBTREE_CLASS::ref(node_pointer i) {
     return { i , i ? reinterpret_cast<Node*>(data) + (i - 1) : nullptr };
 }
@@ -407,15 +411,14 @@ RBTREE_TEMPL template<typename... Args> typename RBTREE_CLASS::node_ref RBTREE_C
 
 RBTREE_TEMPL void RBTREE_CLASS::mark_for_deletion(node_ref node) {
     assert(node->color != Node::Deleted);
+    auto size = sizeof_value(node->value);
+    header.free_space += size + sizeof(Node);
 
     if (node->value == header.data_start) {
-        auto size = sizeof_value(node->value);
         header.data_start += size;
-        header.free_space += size;
 
         assert(node == header.node_count);
         --header.node_count;
-        header.free_space += sizeof(Node);
         return;
     }
 
@@ -433,7 +436,6 @@ RBTREE_TEMPL void RBTREE_CLASS::compress() {
 
         if (node->color == Node::Deleted) {
             size_t size = sizeof_value(node->value);
-            header.free_space += sizeof(Node) + size;
 
             ++node_move;
             data_move += size;
@@ -462,7 +464,7 @@ RBTREE_TEMPL void RBTREE_CLASS::compress() {
     header.data_start = ref(header.node_count)->value;
     header.deleted = 0;
 
-    assert(header.data_start - header.node_count * sizeof(Node) == header.free_space);
+    assert(inner_space() == header.free_space);
 }
 
 RBTREE_TEMPL template<typename T> inline T &RBTREE_CLASS::value_at(pointer i) {

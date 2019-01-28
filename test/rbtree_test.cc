@@ -238,18 +238,21 @@ TEST(RbTree, UpperBound) {
 
 TEST(RbTree, SingleDelete) {
     RbTreeTest<255> tree;
+    const auto cap = tree.capacity_bytes();
 
     tree.insert<1>({1, 2}, {3});
     auto it = tree.find({1, 2});
     tree.erase(it);
 
     EXPECT_EQ(0, tree.size());
+    ASSERT_EQ(cap, tree.capacity_bytes());
     tree.check_rb_invariants();
     ASSERT_EQ(tree.end(), tree.begin());
 }
 
 TEST(RbTree, FillLinearEmptyFill) {
     RbTreeTest<255> tree;
+    const auto cap = tree.capacity_bytes();
 
     uint32_t i = 0;
     while (tree.insert<2>({i++, 0})) {}
@@ -262,6 +265,7 @@ TEST(RbTree, FillLinearEmptyFill) {
         it = tree.begin();
     }
     EXPECT_EQ(0, tree.size());
+    EXPECT_EQ(cap, tree.capacity_bytes());
 
     uint32_t j = 0;
     while (tree.insert<2>({j++, 0}))
@@ -271,6 +275,7 @@ TEST(RbTree, FillLinearEmptyFill) {
 
 TEST(RbTree, FillLinearReverseEmptyFill) {
     RbTreeTest<255> tree;
+    const auto cap = tree.capacity_bytes();
 
     uint32_t i = std::numeric_limits<uint32_t>::max();
     while (tree.insert<2>({i--, 0})) {}
@@ -283,6 +288,7 @@ TEST(RbTree, FillLinearReverseEmptyFill) {
         it = tree.begin();
     }
     EXPECT_EQ(0, tree.size());
+    EXPECT_EQ(cap, tree.capacity_bytes());
 
     uint32_t j = 0;
     while (tree.insert<2>({j++, 0}))
@@ -292,6 +298,7 @@ TEST(RbTree, FillLinearReverseEmptyFill) {
 
 TEST(RbTree, FillSwitchingEmptyFill) {
     RbTreeTest<255> tree;
+    const auto cap = tree.capacity_bytes();
 
     uint32_t i = 0;
     uint32_t k = 0;
@@ -306,6 +313,7 @@ TEST(RbTree, FillSwitchingEmptyFill) {
         it = tree.begin();
     }
     EXPECT_EQ(0, tree.size());
+    EXPECT_EQ(cap, tree.capacity_bytes());
 
     uint32_t j = 0;
     while (tree.insert<2>({j++, 0}))
@@ -315,6 +323,7 @@ TEST(RbTree, FillSwitchingEmptyFill) {
 
 TEST(RbTree, FillIrregularEmpty) {
     RbTreeTest<1024> tree;
+    const auto cap = tree.capacity_bytes();
 
     for (auto i : traversal_test)
         ASSERT_TRUE(tree.insert<2>({0, i}));
@@ -327,10 +336,12 @@ TEST(RbTree, FillIrregularEmpty) {
         it = tree.begin();
     }
     EXPECT_EQ(0, tree.size());
+    EXPECT_EQ(cap, tree.capacity_bytes());
 }
 
 TEST(RbTree, FillLinearEmptyIrregular) {
     RbTreeTest<1024> tree;
+    const auto cap = tree.capacity_bytes();
 
     for (uint32_t i = 1; i <= traversal_test_size; ++i)
         ASSERT_TRUE(tree.insert<2>({0, i}));
@@ -340,6 +351,7 @@ TEST(RbTree, FillLinearEmptyIrregular) {
     for (auto i : traversal_test)
         tree.erase(tree.find({0, i}));
     EXPECT_EQ(0, tree.size());
+    EXPECT_EQ(cap, tree.capacity_bytes());
 }
 
 // ---------------------------------------------------------------------------------------------------

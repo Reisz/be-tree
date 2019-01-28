@@ -87,7 +87,7 @@ class RbTree {
 
     // element count of the tree
     size_t size() const;
-    // lower bound of free space in bytes
+    // free space in bytes
     size_t capacity_bytes() const;
     // size of value + node
     template<size_t I> constexpr static size_t size_bytes();
@@ -109,6 +109,8 @@ class RbTree {
     // For use in functions working with nodes
     struct node_ref;
     struct const_node_ref;
+
+    inline size_t inner_space() const;
 
     inline node_ref ref(node_pointer i);
     inline const_node_ref ref(node_pointer i) const;

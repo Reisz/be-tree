@@ -131,12 +131,10 @@ RBTREE_TEMPL void RBTREE_CLASS::erase(const_iterator it) {
         while (next->right)
             next = ref(next->right);
 
-        // copy key & data from leaf
-        node->key = next->key;
-        node->value = next->value;
+        // swap with leaf (cannot swap value as it would destroy node-value positioning)
+        swap_tree_pos(node, next);
 
         // continue by deleting leaf
-        node = next;
     }
     typename Node::Color color = node->color;
     mark_for_deletion(node);
@@ -387,6 +385,35 @@ RBTREE_TEMPL void RBTREE_CLASS::rotate(node_ref node, typename Node::Child child
         m->parent = node;
 }
 
+RBTREE_TEMPL void RBTREE_CLASS::swap_tree_pos(node_ref a, node_ref b) {
+    assert(a != b);
+
+    node_ref ap = ref(a->parent), bp = ref(b->parent);
+    if (ap)
+        ap->children[ap->side(a)] = b;
+    else
+        header.root_node = b;
+    if (bp)
+        bp->children[bp->side(b)] = a;
+    else
+        header.root_node = a;
+
+    std::swap(a->parent, b->parent);
+    std::swap(a->left, b->left);
+    std::swap(a->right, b->right);
+    std::swap(a->color, b->color);
+
+    if (a->left)
+        ref(a->left)->parent = a;
+    if (b->left)
+        ref(b->left)->parent = b;
+
+    if (a->right)
+        ref(a->right)->parent = a;
+    if (b->right)
+        ref(b->right)->parent = b;
+}
+
 RBTREE_TEMPL inline size_t RBTREE_CLASS::inner_space() const {
     return header.data_start - header.node_count * sizeof(Node);
 }
@@ -461,8 +488,12 @@ RBTREE_TEMPL void RBTREE_CLASS::compress() {
     }
 
     header.node_count -= header.deleted;
-    header.data_start = ref(header.node_count)->value;
     header.deleted = 0;
+
+    if (header.node_count)
+        header.data_start = ref(header.node_count)->value;
+    else
+        header.data_start = kDataSize;
 
     assert(inner_space() == header.free_space);
 }

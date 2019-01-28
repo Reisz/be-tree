@@ -126,6 +126,7 @@ class RbTree {
     // helper functions
     template<typename T> std::optional<pointer> insert(const Key &key);
     void rotate(node_ref node, typename Node::Child child);
+    void swap_tree_pos(node_ref a, node_ref b);
 
     static constexpr Compare comp{};
 

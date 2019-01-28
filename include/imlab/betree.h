@@ -84,9 +84,10 @@ class BeTree : Segment<page_size> {
     void split(ExclusiveFix &parent, ExclusiveFix &child, const Key &key);
     // flush starting at the root node until there is space for at least one message
     // fixes the entire path currently being flushed and splits recursively as necessary
-    ExclusiveFix flush(ExclusiveFix root, size_t min_amount);
+    void flush(ExclusiveFix &root, size_t min_amount);
     // find the best child to fulshu to, also immediately flushes to dirty childs if possible
     std::pair<uint32_t, size_t> find_flush(ExclusiveFix &fix);
+    void insert_leaf(ExclusiveFix &root, const Key &key, uint64_t page_id);
 };
 
 IMLAB_BETREE_TEMPL struct IMLAB_BETREE_CLASS::Node {
@@ -178,7 +179,7 @@ IMLAB_BETREE_TEMPL struct IMLAB_BETREE_CLASS::MessageKey {
 
 
     friend bool operator<(const MessageKey &a, const MessageKey &b) {
-        return comp(a.key, b.key) || (!comp(b.key, b.key) && a.timestamp < b.timestamp);
+        return comp(a.key, b.key) || (!comp(b.key, a.key) && a.timestamp < b.timestamp);
     }
 
     static constexpr MessageKey min(const Key &key) {

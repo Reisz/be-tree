@@ -10,6 +10,14 @@
 #include <map>
 #include "imlab/betree.h"
 // ---------------------------------------------------------------------------------------------------
+// #define DEBUG_FLUSH
+#ifdef DEBUG_FLUSH
+    #include <iostream>
+    #define DEBUG(x) do { std::cerr << x; } while (0)
+#else
+    #define DEBUG(x) do {} while (0)
+#endif
+// ---------------------------------------------------------------------------------------------------
 namespace imlab {
 IMLAB_BETREE_TEMPL constexpr IMLAB_BETREE_CLASS::Node::Node(uint16_t level)
     : level(level) {}
@@ -56,8 +64,6 @@ IMLAB_BETREE_TEMPL bool IMLAB_BETREE_CLASS::InnerNode::message_insert(const Mess
     if (!msgs.template insert<Insert>(key, value))
         return false;
 
-    if (comp(key.key, keys[0]))
-        keys[0] = key.key;
     return true;
 }
 
@@ -65,8 +71,6 @@ IMLAB_BETREE_TEMPL bool IMLAB_BETREE_CLASS::InnerNode::message_insert_or_assign(
     if (!msgs.template insert<InsertOrAssign>(key, value))
         return false;
 
-    if (comp(key.key, keys[0]))
-        keys[0] = key.key;
     return true;
 }
 
@@ -74,8 +78,6 @@ IMLAB_BETREE_TEMPL bool IMLAB_BETREE_CLASS::InnerNode::message_upsert(const Mess
     if (!msgs.template insert<Upsert>(key, value))
         return false;
 
-    if (comp(key.key, keys[0]))
-        keys[0] = key.key;
     return true;
 }
 
@@ -83,8 +85,6 @@ IMLAB_BETREE_TEMPL bool IMLAB_BETREE_CLASS::InnerNode::message_erase(const Messa
     if (!msgs.template insert<Erase>(key))
         return false;
 
-    if (comp(key.key, keys[0]))
-        keys[0] = key.key;
     return true;
 }
 
@@ -99,8 +99,12 @@ IMLAB_BETREE_TEMPL bool IMLAB_BETREE_CLASS::InnerNode::apply(typename MessageMap
         case Erase:
             return message_erase(it->key());
         default:
-            assert(false);
+            throw;
     }
+}
+
+IMLAB_BETREE_TEMPL const typename IMLAB_BETREE_CLASS::MessageMap &IMLAB_BETREE_CLASS::InnerNode::messages() const {
+    return msgs;
 }
 
 IMLAB_BETREE_TEMPL size_t IMLAB_BETREE_CLASS::InnerNode::map_capacity_bytes() const {
@@ -153,6 +157,7 @@ IMLAB_BETREE_TEMPL void IMLAB_BETREE_CLASS::InnerNode::insert(const Key &key, ui
 }
 
 IMLAB_BETREE_TEMPL Key IMLAB_BETREE_CLASS::InnerNode::split(InnerNode &other) {
+    DEBUG("Splitting inner node level " << this->level << std::endl);
     assert(this->count > 2);
     assert(other.level == this->level);
     assert(other.count == 0);
@@ -176,7 +181,7 @@ IMLAB_BETREE_TEMPL Key IMLAB_BETREE_CLASS::InnerNode::split(InnerNode &other) {
     this->count = start;
 
     // split messages
-    for (auto it = msgs.upper_bound(MessageKey::min(keys[start])); it != msgs.end();) {
+    for (auto it = msgs.upper_bound(MessageKey::max(keys[start])); it != msgs.end();) {
         other.apply(it);
         msgs.erase(it++);
     }
@@ -209,6 +214,11 @@ IMLAB_BETREE_TEMPL const T &IMLAB_BETREE_CLASS::LeafNode::at(uint32_t idx) const
 IMLAB_BETREE_TEMPL T &IMLAB_BETREE_CLASS::LeafNode::at(uint32_t idx) {
     assert(idx < this->count);
     return values[idx];
+}
+
+IMLAB_BETREE_TEMPL const Key &IMLAB_BETREE_CLASS::LeafNode::key(uint32_t idx) const {
+    assert(idx < this->count);
+    return keys[idx];
 }
 
 IMLAB_BETREE_TEMPL bool IMLAB_BETREE_CLASS::LeafNode::is_equal(const Key &key, uint32_t idx) const {
@@ -292,7 +302,7 @@ IMLAB_BETREE_TEMPL typename IMLAB_BETREE_CLASS::const_iterator IMLAB_BETREE_CLAS
                 case Upsert:
                     break;  // TODO
                 default:
-                    assert(false);
+                    throw;
             }
         }
 
@@ -343,9 +353,11 @@ IMLAB_BETREE_TEMPL void IMLAB_BETREE_CLASS::insert(const Key &key, const T &valu
 
     if (!root.template as<InnerNode>()->message_insert({key, next_timestamp}, value)) {
         flush(root, MessageMap::template size_bytes<Insert>());
+        assert(this->page_id(root) == *this->root);
         if (!root.template as<InnerNode>()->message_insert({key, next_timestamp}, value))
-            assert(false);
+            throw;
     }
+    DEBUG("Inserted " << key << std::endl);
     ++next_timestamp;
     ++pending;
     root.set_dirty();
@@ -427,6 +439,8 @@ IMLAB_BETREE_TEMPL void IMLAB_BETREE_CLASS::split(ExclusiveFix &parent, Exclusiv
 }
 
 IMLAB_BETREE_TEMPL void IMLAB_BETREE_CLASS::flush(ExclusiveFix &root, size_t min_amount) {
+    DEBUG("Flushing root level for " << min_amount << " bytes" << std::endl);
+
     struct FlushRequest { ExclusiveFix fix; uint32_t index; size_t bytes; };
     std::vector<FlushRequest> flushes; {
         auto flush = find_flush(root);
@@ -437,7 +451,7 @@ IMLAB_BETREE_TEMPL void IMLAB_BETREE_CLASS::flush(ExclusiveFix &root, size_t min
     struct LeafStorage { ExclusiveFix fix; bool in_tree; };
     ExclusiveFix left_leaf;
     std::map<Key, LeafStorage, Compare> leaves;
-    auto insert_existing_leaf = [&](auto &target){
+    auto insert_existing_leaf = [&](auto &target) {
         const Key *leaf_key = nullptr;
         for (auto it = flushes.rbegin(); it != flushes.rend(); ++it) {
             if (it->index > 0) {
@@ -489,10 +503,15 @@ IMLAB_BETREE_TEMPL void IMLAB_BETREE_CLASS::flush(ExclusiveFix &root, size_t min
                     flushes.push_back({std::move(target), flush.first, flush.second});
                     continue;
                 }
+                DEBUG("\tEarly flush was sufficient" << std::endl);
             } else {
+                DEBUG("\tFlushing to inner " << flushes.back().index << std::endl);
                 for (auto iters = source.map_get_range(flushes.back().index); iters.first != iters.second; source.map_erase(iters.first++)) {
+                    DEBUG("\t\tFlushing " << iters.first->key().key << std::endl);
+                    assert(flushes.back().index > 0 ? !comp(iters.first->key().key, source.key(flushes.back().index - 1))
+                        : comp(iters.first->key().key, source.key(0)));
                     if (!inner.apply(iters.first))
-                        assert(false);
+                        throw;
                 }
                 target.set_dirty();
             }
@@ -565,7 +584,7 @@ IMLAB_BETREE_TEMPL void IMLAB_BETREE_CLASS::flush(ExclusiveFix &root, size_t min
                         ++pending;
                         break;
                     default:
-                        assert(false);
+                        throw;
                 }
             }
         }
@@ -589,26 +608,43 @@ IMLAB_BETREE_TEMPL std::pair<uint32_t, size_t> IMLAB_BETREE_CLASS::find_flush(Ex
     uint32_t result;
     size_t max_flush_amount_bytes = 0;
 
+    DEBUG("\tFinding flush" << std::endl);
     for (uint32_t i = 0; i <= inner.count; ++i) {
+        DEBUG("\t\tSearching index " << i << std::endl);
+        if (i > 0)
+            DEBUG("\t\tLeft key: " << inner.key(i - 1) << std::endl);
+        if (i < inner.count)
+            DEBUG("\t\tRight key: " << inner.key(i) << std::endl);
+
         auto iters = inner.map_get_range(i);
         uint32_t flush_amount_bytes = 0;
 
+        if (iters.first == inner.messages().end())
+            break;
+
         // try to immediately flush
         if (inner.level > 1 && this->is_dirty(inner.at(i))) {
+            DEBUG("\t\t\tChild is dirty, trying to flush." << std::endl);
             auto child_fix = this->fix_exclusive(inner.at(i));
             auto &child = *child_fix.template as<InnerNode>();
 
             while (iters.first != iters.second) {
+                assert(i > 0 ? !comp(iters.first->key().key, inner.key(i - 1)) : comp(iters.first->key().key, inner.key(0)));
                 if (!child.apply(iters.first))
                     break;
+                DEBUG("\t\t\t\tFlushed " << iters.first->key().key << std::endl);
                 inner.map_erase(iters.first++);
                 fix.set_dirty();
             }
+
+            DEBUG(std::endl);
         }
 
         // count remaining message bytes
-        for (; iters.first != iters.second; ++iters.first)
+        for (; iters.first != iters.second; ++iters.first) {
+            DEBUG("\t\t\t\tCounting " << iters.first->key().key << std::endl);
             flush_amount_bytes += iters.first->size_bytes();
+        }
 
         if (flush_amount_bytes > max_flush_amount_bytes) {
             max_flush_amount_bytes = flush_amount_bytes;
@@ -616,10 +652,12 @@ IMLAB_BETREE_TEMPL std::pair<uint32_t, size_t> IMLAB_BETREE_CLASS::find_flush(Ex
         }
     }
 
+    DEBUG("\t\tSelected flush: " << result << std::endl);
     return std::make_pair(result, max_flush_amount_bytes);
 }
 
 IMLAB_BETREE_TEMPL void IMLAB_BETREE_CLASS::insert_leaf(ExclusiveFix &root, const Key &key, uint64_t page_id) {
+    ExclusiveFix new_root;
     std::vector<ExclusiveFix> fixes;
     fixes.push_back(std::move(root));
 
@@ -627,9 +665,12 @@ IMLAB_BETREE_TEMPL void IMLAB_BETREE_CLASS::insert_leaf(ExclusiveFix &root, cons
         fixes.push_back(this->fix_exclusive(fixes.back().template as<InnerNode>()->lower_bound(key)));
 
     auto it = fixes.rbegin();
-    auto split_it = [this, &fixes, &key, &it] () {
-        ExclusiveFix dummy;
-        it + 1 == fixes.rend() ? split(dummy, *it, key) : split(*(it + 1), *it, key);
+    auto split_it = [&] () {
+        if (it + 1 == fixes.rend()) {
+            split(new_root, *it, key);
+        } else {
+            split(*(it + 1), *it, key);
+        }
     };
 
     if (it->template as<InnerNode>()->full()) {
@@ -647,7 +688,10 @@ IMLAB_BETREE_TEMPL void IMLAB_BETREE_CLASS::insert_leaf(ExclusiveFix &root, cons
     fixes.back().template as<InnerNode>()->insert(key, page_id);
     fixes.back().set_dirty();
 
-    root = std::move(fixes.front());
+    if (new_root.data())
+        root = std::move(new_root);
+    else
+        root = std::move(fixes.front());
 }
 // ---------------------------------------------------------------------------------------------------
 IMLAB_BETREE_TEMPL bool IMLAB_BETREE_CLASS::const_iterator::operator==(const const_iterator &other) const {
@@ -672,7 +716,7 @@ IMLAB_BETREE_TEMPL typename IMLAB_BETREE_CLASS::const_reference IMLAB_BETREE_CLA
             case InsertOrAssign:
                 return it->template as<InsertOrAssign>();
             default:
-                assert(false);
+                throw;
         }
     }
 }

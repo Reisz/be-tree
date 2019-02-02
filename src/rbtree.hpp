@@ -16,7 +16,7 @@ RBTREE_TEMPL constexpr typename RBTREE_CLASS::Node::Child RBTREE_CLASS::Node::si
 }
 // ---------------------------------------------------------------------------------------------------
 RBTREE_TEMPL constexpr RBTREE_CLASS::RbTree() {
-  static_assert(sizeof(*this) == page_size);
+    static_assert(sizeof(*this) == page_size);
 }
 
 RBTREE_TEMPL typename RBTREE_CLASS::const_iterator RBTREE_CLASS::begin() const {

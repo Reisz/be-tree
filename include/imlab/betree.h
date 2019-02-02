@@ -69,6 +69,10 @@ class BeTree : private Segment<page_size> {
     uint64_t size_pending() const;
     uint64_t capacity() const;
 
+
+    // testing interface, not linked in prod code
+    void check_be_invariants() const;
+
  private:
     static constexpr Compare comp{};
 
@@ -123,6 +127,7 @@ IMLAB_BETREE_TEMPL class IMLAB_BETREE_CLASS::InnerNode : public Node {
     bool message_upsert(const MessageKey &key, upsert_t value);
     bool apply(typename MessageMap::const_iterator it);
 
+    const MessageMap &messages() const;
     size_t map_capacity_bytes() const;
     MessageRange map_get_range(uint32_t idx) const;
     MessageRange map_get_key_range(const Key &key) const;
@@ -150,6 +155,7 @@ IMLAB_BETREE_TEMPL class IMLAB_BETREE_CLASS::LeafNode : public Node {
     uint32_t upper_bound(const Key &key) const;
     const T &at(uint32_t idx) const;
     T &at(uint32_t idx);
+    const Key &key(uint32_t idx) const;
     bool is_equal(const Key &key, uint32_t idx) const;
 
     bool full() const;

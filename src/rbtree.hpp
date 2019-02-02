@@ -195,7 +195,7 @@ RBTREE_TEMPL void RBTREE_CLASS::erase(const_iterator it) {
             if (ref(sibling->children[-child])->color == Node::Red)
                 goto case5;
             if (ref(sibling->children[child])->color == Node::Red)
-                goto case5;
+                goto case4;
             if (parent->color == Node::Red)
                 goto case3;
 

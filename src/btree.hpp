@@ -454,6 +454,12 @@ IMLAB_BTREE_TEMPL uint64_t IMLAB_BTREE_CLASS::size() const {
 IMLAB_BTREE_TEMPL uint64_t IMLAB_BTREE_CLASS::capacity() const {
     return leaf_count * LeafNode::kCapacity;
 }
+
+IMLAB_BTREE_TEMPL uint16_t IMLAB_BTREE_CLASS::depth() const {
+    if (root)
+        return this->fix(*root).template as<Node>()->level;
+    return 0;
+}
 // ---------------------------------------------------------------------------------------------------
 IMLAB_BTREE_TEMPL typename IMLAB_BTREE_CLASS::iterator &IMLAB_BTREE_CLASS::iterator::operator++() {
     auto &leaf = *fix.template as<LeafNode>();

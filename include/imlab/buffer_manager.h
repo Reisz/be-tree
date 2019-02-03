@@ -35,6 +35,9 @@ BUFFER_MANAGER_TEMPL class BufferManager {
     bool in_memory(uint64_t page_id) const;
     bool is_dirty(uint64_t page_id) const;
 
+    size_t page_reads() const { return _page_reads; }
+    size_t page_writes() const { return _page_writes; }
+
     // testing interface, not linked in prod code
     const std::vector<uint64_t> get_fifo() const;
     const std::vector<uint64_t> get_lru() const;
@@ -68,6 +71,9 @@ BUFFER_MANAGER_TEMPL class BufferManager {
     // global mutex
     // TODO finer lock granularity
     std::mutex mutex;
+
+    size_t _page_reads = 0;
+    size_t _page_writes = 0;
 };
 
 BUFFER_MANAGER_TEMPL struct BUFFER_MANAGER_CLASS::Page {

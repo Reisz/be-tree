@@ -68,6 +68,7 @@ class BeTree : private Segment<page_size> {
     uint64_t size() const;
     uint64_t size_pending() const;
     uint64_t capacity() const;
+    uint16_t depth() const;
 
 
     // testing interface, not linked in prod code

@@ -4,59 +4,57 @@
 #include "imlab/btree.h"
 #include "imlab/betree.h"
 #include "imlab/infra/random.h"
+#include "imlab/infra/bench.h"
 // ---------------------------------------------------------------------------
 namespace {
 // ---------------------------------------------------------------------------
-template<size_t page_size, typename T> void BM_LinearInsert(size_t max) {
+template<size_t page_size, typename T> void BM_LinearInsert(Bencher &bencher) {
     imlab::BufferManager<page_size> manager{10};
     T tree{0, manager};
-    for (uint64_t i = 0; i < max; ++i)
+
+    bencher.start_timer();
+    for (uint64_t i = 0; i < bencher.count; ++i)
         tree.insert(i, i);
+    bencher.end_timer_write();
+
+    // TODO
+    bencher.end_timer_read();
+
+    bencher.depth = tree.depth();
+    bencher.reads = manager.page_reads();
+    bencher.writes = manager.page_writes();
     asm volatile("" : "+m" (tree));
 }
 
-template<size_t page_size, typename T> void BM_RandomInsert(size_t max) {
-    imlab::BufferManager<page_size> manager{10};
+template<size_t page_size, typename T> void BM_RandomInsert(Bencher &bencher) {
+    imlab::BufferManager<page_size> manager{100};
     T tree{0, manager};
-    for (uint64_t i = 0; i < max; ++i)
+
+    bencher.start_timer();
+    for (uint64_t i = 0; i < bencher.count; ++i)
         tree.insert(xorshf96(), 0);
+    bencher.end_timer_write();
+
+    // TODO
+    bencher.end_timer_read();
+
+    bencher.depth = tree.depth();
+    bencher.reads = manager.page_reads();
+    bencher.writes = manager.page_writes();
     asm volatile("" : "+m" (tree));
 }
 // ---------------------------------------------------------------------------
 }  // namespace
 
-static constexpr double kMaxBenchTime = 1e5;
-
-static constexpr size_t kRangeStart = 1 << 8;
-static constexpr size_t kRangeEnd = 1 << 20;
-static constexpr size_t kRangeSteps = 20;
-
-static constexpr size_t kRangeStep = (kRangeEnd - kRangeStart) / kRangeSteps;
-#define SINGLE_BENCH(fn) do {\
-    size_t range = 1 << 20;\
-    for (size_t range = kRangeStart; range <= kRangeEnd; range += kRangeStep) {\
-        std::chrono::time_point<std::chrono::steady_clock> start, end;\
-        uint64_t times = 0;\
-        double result;\
-        start = std::chrono::steady_clock::now();\
-        do {\
-            fn(range);\
-            end = std::chrono::steady_clock::now();\
-            ++times;\
-        } while ((result = std::chrono::duration <double, std::micro>(end - start).count()) < kMaxBenchTime);\
-        std::cout << range << ',' << std::fixed << result / times << std::endl;\
-    }\
-} while (false)
-
 #define B_TREE_BENCH(name, page_size) do {\
     std::cout << "#" #name "$BTree<" #page_size ">" << std::endl;\
-    void (*bench)(size_t) = name<page_size, imlab::BTree<uint64_t, uint64_t, page_size>>;\
+    void (*bench)(Bencher &) = name<page_size, imlab::BTree<uint64_t, uint64_t, page_size>>;\
     SINGLE_BENCH(bench);\
 } while (false)
 
 #define BE_TREE_BENCH(name, page_size, epsilon) do {\
     std::cout << "#" #name "$BeTree<" #page_size "," #epsilon ">" << std::endl;\
-    void (*bench)(size_t) = name<page_size, imlab::BeTree<uint64_t, uint64_t, page_size, epsilon>>;\
+    void (*bench)(Bencher &) = name<page_size, imlab::BeTree<uint64_t, uint64_t, page_size, epsilon>>;\
     SINGLE_BENCH(bench);\
 } while (false)
 

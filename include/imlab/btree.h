@@ -59,6 +59,7 @@ class BTree : private Segment<page_size> {
 
     uint64_t size() const;
     uint64_t capacity() const;
+    uint16_t depth() const;
 
  private:
     static constexpr Compare comp{};

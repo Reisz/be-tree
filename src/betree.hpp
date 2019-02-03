@@ -380,6 +380,12 @@ IMLAB_BETREE_TEMPL uint64_t IMLAB_BETREE_CLASS::capacity() const {
     return leaf_count * LeafNode::kCapacity;
 }
 
+IMLAB_BETREE_TEMPL uint16_t IMLAB_BETREE_CLASS::depth() const {
+    if (root)
+        return this->fix(*root).template as<Node>()->level;
+    return 0;
+}
+
 IMLAB_BETREE_TEMPL typename IMLAB_BETREE_CLASS::ExclusiveFix IMLAB_BETREE_CLASS::root_fix_exclusive() {
     if (root)
         return this->fix_exclusive(*root);

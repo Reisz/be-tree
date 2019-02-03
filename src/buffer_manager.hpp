@@ -208,11 +208,13 @@ BUFFER_MANAGER_TEMPL typename BUFFER_MANAGER_CLASS::Page *BUFFER_MANAGER_CLASS::
 }
 
 BUFFER_MANAGER_TEMPL void BUFFER_MANAGER_CLASS::load_page(Page &p) {
+    ++_page_reads;
     SegmentFile f{p.page_id, page_size};
     f.read(p.data.get());
 }
 
 BUFFER_MANAGER_TEMPL void BUFFER_MANAGER_CLASS::save_page(const Page &p) {
+    ++_page_writes;
     SegmentFile f{p.page_id, page_size};
     f.write(p.data.get());
 }

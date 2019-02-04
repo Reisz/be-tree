@@ -7,6 +7,7 @@
 #include "imlab/infra/bench.h"
 // ---------------------------------------------------------------------------
 namespace {
+constexpr size_t find_amount = 1 << 14;
 // ---------------------------------------------------------------------------
 template<size_t page_size, typename T> void BM_LinearInsert(Bencher &bencher) {
     imlab::BufferManager<page_size> manager{10};
@@ -17,8 +18,12 @@ template<size_t page_size, typename T> void BM_LinearInsert(Bencher &bencher) {
         tree.insert(i, i);
     bencher.end_timer_write();
 
-    // TODO
+    size_t i = 0;
+    bencher.start_timer();
+    for (uint64_t i = 0; i < find_amount; ++i)
+        i += tree.find(xorshf96()) == tree.end();
     bencher.end_timer_read();
+    asm volatile("" : "+m" (i));
 
     bencher.depth = tree.depth();
     bencher.reads = manager.page_reads();
@@ -35,8 +40,12 @@ template<size_t page_size, typename T> void BM_RandomInsert(Bencher &bencher) {
         tree.insert(xorshf96(), 0);
     bencher.end_timer_write();
 
-    // TODO
+    size_t i = 0;
+    bencher.start_timer();
+    for (uint64_t i = 0; i < find_amount; ++i)
+        i += tree.find(xorshf96()) == tree.end();
     bencher.end_timer_read();
+    asm volatile("" : "+m" (i));
 
     bencher.depth = tree.depth();
     bencher.reads = manager.page_reads();

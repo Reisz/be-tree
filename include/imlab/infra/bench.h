@@ -60,11 +60,11 @@ std::ostream &operator<<(std::ostream &os, Bencher &b) {
     return os;
 }
 
-static constexpr double kMaxBenchTime = 1e6;
+static constexpr double kMaxBenchTime = 1e5;
 
-static constexpr size_t kRangeStart = 1 << 10;
-static constexpr size_t kRangeEnd = 1 << 20;
-static constexpr size_t kRangeSteps = 20;
+static constexpr size_t kRangeStart = 1 << 7;
+static constexpr size_t kRangeEnd = 1 << 14;
+static constexpr size_t kRangeSteps = 10;
 
 static constexpr size_t kRangeStep = (kRangeEnd - kRangeStart) / kRangeSteps;
 

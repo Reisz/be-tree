@@ -114,7 +114,6 @@ IMLAB_BETREE_TEMPL class IMLAB_BETREE_CLASS::InnerNode : public Node {
 
     constexpr InnerNode(uint16_t level);
 
-    uint64_t begin() const;
     uint64_t lower_bound(const Key &key) const;
     uint64_t upper_bound(const Key &key) const;
     bool full() const;
@@ -130,6 +129,7 @@ IMLAB_BETREE_TEMPL class IMLAB_BETREE_CLASS::InnerNode : public Node {
 
     const MessageMap &messages() const;
     size_t map_capacity_bytes() const;
+    uint32_t map_start_index() const;
     MessageRange map_get_range(uint32_t idx) const;
     MessageRange map_get_key_range(const Key &key) const;
     void map_erase(typename MessageMap::const_iterator it);

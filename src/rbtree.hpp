@@ -121,7 +121,7 @@ RBTREE_TEMPL template<size_t I> constexpr size_t RBTREE_CLASS::size_bytes() {
 }
 
 RBTREE_TEMPL void RBTREE_CLASS::erase(const_iterator it) {
-    assert(it.tree == this);
+    assert(it.ref.tree == this);
     auto node = ref(it.ref.i);
 
     // inner node with 2 children

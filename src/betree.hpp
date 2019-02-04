@@ -32,10 +32,6 @@ IMLAB_BETREE_TEMPL constexpr IMLAB_BETREE_CLASS::InnerNode::InnerNode(uint16_t l
     assert(level > 0);
 }
 
-IMLAB_BETREE_TEMPL uint64_t IMLAB_BETREE_CLASS::InnerNode::begin() const {
-    return children[0];
-}
-
 IMLAB_BETREE_TEMPL uint64_t IMLAB_BETREE_CLASS::InnerNode::lower_bound(const Key &key) const {
     assert(this->count > 0);
     if (comp(keys[this->count - 1], key))
@@ -109,6 +105,14 @@ IMLAB_BETREE_TEMPL const typename IMLAB_BETREE_CLASS::MessageMap &IMLAB_BETREE_C
 
 IMLAB_BETREE_TEMPL size_t IMLAB_BETREE_CLASS::InnerNode::map_capacity_bytes() const {
     return msgs.capacity_bytes();
+}
+
+IMLAB_BETREE_TEMPL uint32_t IMLAB_BETREE_CLASS::InnerNode::map_start_index() const {
+    assert(this->count > 0);
+    const auto &key = msgs.begin()->key().key;
+    if (comp(keys[this->count - 1], key))
+        return this->count;
+    return std::lower_bound(keys, keys + this->count, key, comp) - keys;
 }
 
 IMLAB_BETREE_TEMPL typename IMLAB_BETREE_CLASS::MessageRange IMLAB_BETREE_CLASS::InnerNode::map_get_range(uint32_t idx) const {
@@ -609,13 +613,15 @@ IMLAB_BETREE_TEMPL void IMLAB_BETREE_CLASS::flush(ExclusiveFix &root, size_t min
 }
 
 IMLAB_BETREE_TEMPL std::pair<uint32_t, size_t> IMLAB_BETREE_CLASS::find_flush(ExclusiveFix &fix) {
+    DEBUG("\tFinding flush" << std::endl);
+
     auto &inner = *fix.template as<InnerNode>();
 
     uint32_t result;
     size_t max_flush_amount_bytes = 0;
 
-    DEBUG("\tFinding flush" << std::endl);
-    for (uint32_t i = 0; i <= inner.count; ++i) {
+    assert(inner.messages().begin() != inner.messages().end());
+    for (uint32_t i = inner.map_start_index(); i <= inner.count; ++i) {
         DEBUG("\t\tSearching index " << i << std::endl);
         if (i > 0)
             DEBUG("\t\tLeft key: " << inner.key(i - 1) << std::endl);

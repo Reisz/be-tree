@@ -419,11 +419,19 @@ RBTREE_TEMPL inline size_t RBTREE_CLASS::inner_space() const {
 }
 
 RBTREE_TEMPL inline typename RBTREE_CLASS::node_ref RBTREE_CLASS::ref(node_pointer i) {
-    return { i , i ? reinterpret_cast<Node*>(data) + (i - 1) : nullptr };
+    #ifdef NDEBUG
+        return {i, reinterpret_cast<Node*>(data) + (i - 1)};
+    #else
+        return { i , i ? reinterpret_cast<Node*>(data) + (i - 1) : nullptr };
+    #endif
 }
 
 RBTREE_TEMPL inline typename RBTREE_CLASS::const_node_ref RBTREE_CLASS::ref(node_pointer i) const {
-    return { i , i ? reinterpret_cast<const Node*>(data) + (i - 1) : nullptr };
+    #ifdef NDEBUG
+        return {i, reinterpret_cast<const Node*>(data) + (i - 1)};
+    #else
+        return { i , i ? reinterpret_cast<const Node*>(data) + (i - 1) : nullptr };
+    #endif
 }
 
 RBTREE_TEMPL template<typename... Args> typename RBTREE_CLASS::node_ref RBTREE_CLASS::emplace_node(Args &&...a) {

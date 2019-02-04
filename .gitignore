@@ -45,3 +45,7 @@ compile_commands.json
 # Executables
 *.exe
 *.out
+
+# Perf output
+perf.data
+perf.data.old

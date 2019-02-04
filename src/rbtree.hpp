@@ -534,20 +534,20 @@ RBTREE_TEMPL size_t RBTREE_CLASS::const_reference::size_bytes() const {
 }
 // ---------------------------------------------------------------------------------------------------
 RBTREE_TEMPL typename RBTREE_CLASS::const_iterator &RBTREE_CLASS::const_iterator::operator++() {
-    auto current = tree->ref(ref.i);
+    auto current = ref.tree->ref(ref.i);
 
     // right child available: take path, then go all the way left to find smallest
     if (current->right) {
-        current = tree->ref(current->right);
+        current = ref.tree->ref(current->right);
         do {
             ref.i = current;
-        } while ((current = tree->ref(current->left)));
+        } while ((current = ref.tree->ref(current->left)));
     } else {  // look at parent otherwise
-        auto parent = tree->ref(current->parent);
+        auto parent = ref.tree->ref(current->parent);
         // left side of parent: parent is next, continue with parent otherwise
         while (parent && parent->side(current) == Node::Right) {
             current = parent;
-            parent = tree->ref(current->parent);
+            parent = ref.tree->ref(current->parent);
         }
         ref.i = parent;
     }
@@ -556,13 +556,13 @@ RBTREE_TEMPL typename RBTREE_CLASS::const_iterator &RBTREE_CLASS::const_iterator
 }
 
 RBTREE_TEMPL typename RBTREE_CLASS::const_iterator RBTREE_CLASS::const_iterator::operator++(int) {
-    auto result = const_iterator(tree, ref.i);
+    auto result = const_iterator(ref.tree, ref.i);
     ++(*this);
     return result;
 }
 
 RBTREE_TEMPL bool RBTREE_CLASS::const_iterator::operator==(const const_iterator &other) const {
-    return tree == other.tree && ref.i == other.ref.i;
+    return ref.tree == other.ref.tree && ref.i == other.ref.i;
 }
 
 RBTREE_TEMPL bool RBTREE_CLASS::const_iterator::operator!=(const const_iterator &other) const {

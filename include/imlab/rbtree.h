@@ -183,7 +183,7 @@ RBTREE_TEMPL class RBTREE_CLASS::const_iterator {
     friend class RbTree;
 
  public:
-    const_iterator() : tree(nullptr), ref(nullptr, 0) {}
+    const_iterator() : ref(nullptr, 0) {}
 
     const_iterator &operator++();
     const_iterator operator++(int);
@@ -194,9 +194,8 @@ RBTREE_TEMPL class RBTREE_CLASS::const_iterator {
 
  private:
     const_iterator(const RbTree *tree, node_pointer i)
-        : tree(tree), ref(tree, i) {}
+        : ref(tree, i) {}
 
-    const RbTree *tree;
     const_reference ref;
 };
 

@@ -7,7 +7,7 @@
 #include "imlab/infra/bench.h"
 // ---------------------------------------------------------------------------
 namespace {
-constexpr size_t find_amount = 1 << 14;
+constexpr size_t find_amount = 1 << 24;
 // ---------------------------------------------------------------------------
 template<size_t page_size, typename T> void BM_LinearInsert(Bencher &bencher) {
     imlab::BufferManager<page_size> manager{10};

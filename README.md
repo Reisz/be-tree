@@ -1,5 +1,4 @@
-<!--
-[![pipeline status](https://gitlab.db.in.tum.de/your-user/your-project-name/badges/master/pipeline.svg)](https://gitlab.db.in.tum.de/your-user/your-project-name/commits/master)
--->
+# B<sup>ε</sup>-Tree Implementation
+Implementation of B-Tree and B<sup>ε</sup>-Tree [1] data structures for a practical seminar about modern database systems.
 
-Let there be a documentation.
+[1] Bender, Michael A., et al. "An Introduction to B<sup>ε</sup>-trees and Write-Optimization." *Operating Systems and Sysadmin* (2015): 22.

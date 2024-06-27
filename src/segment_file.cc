@@ -35,13 +35,44 @@ namespace {
         throw std::system_error{errno, std::system_category()};
     }
 
+#if defined WIN32
+    ssize_t pread(int fd, void *buf, size_t count, off_t offset) {
+        auto off = lseek(fd, offset, SEEK_SET);
+        if (off < 0) {
+            return off;
+        }
+        if (off != offset) {
+            return 0;
+        }
+
+        return read(fd, buf, count);
+    }
+
+    ssize_t pwrite(int fd, const void *buf, size_t count, off_t offset) {
+        auto off = lseek(fd, offset, SEEK_SET);
+        if (off < 0) {
+            return off;
+        }
+        if (off != offset) {
+            return 0;
+        }
+
+        return write(fd, buf, count);
+    }
+#endif
+
+#if defined WIN32
+    inline constexpr int OPEN_OPTIONS = O_RDWR | O_CREAT;
+#else
+    inline constexpr int OPEN_OPTIONS = O_RDWR | O_CREAT | O_SYNC;
+#endif
 }  // namespace
 
 SegmentFile::SegmentFile(uint64_t page_id, size_t page_size) : page_size(page_size) {
     std::string filename = save_directory();
     filename += std::to_string(segment_id(page_id));
 
-    fd = open(filename.c_str(), O_RDWR | O_CREAT | O_SYNC, 0666);
+    fd = open(filename.c_str(), OPEN_OPTIONS, 0666);
     if (fd < 0)
         throw_errno();
 

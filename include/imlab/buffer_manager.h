@@ -5,10 +5,11 @@
 #define INCLUDE_IMLAB_BUFFER_MANAGER_H_
 
 #include <cstddef>
-#include <vector>
-#include <unordered_map>
-#include <mutex>
+#include <exception>
 #include <memory>
+#include <mutex>
+#include <unordered_map>
+#include <vector>
 // ---------------------------------------------------------------------------------------------------
 namespace imlab {
 

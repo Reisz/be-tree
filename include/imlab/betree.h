@@ -4,13 +4,15 @@
 #ifndef INCLUDE_IMLAB_BETREE_H_
 #define INCLUDE_IMLAB_BETREE_H_
 
+#include "imlab/rbtree.h"
+#include "imlab/segment.h"
+
+#include <algorithm>
 #include <functional>
 #include <limits>
-#include <algorithm>
+#include <optional>
 #include <utility>
 #include <vector>
-#include "imlab/segment.h"
-#include "imlab/rbtree.h"
 // ---------------------------------------------------------------------------------------------------
 namespace imlab {
 

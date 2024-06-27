@@ -4,10 +4,16 @@
 #ifndef INCLUDE_IMLAB_RBTREE_H_
 #define INCLUDE_IMLAB_RBTREE_H_
 
-#include <functional>
 #include <algorithm>
+#include <array>
+#include <cstddef>
+#include <cstdint>
+#include <functional>
 #include <limits>
+#include <optional>
 #include <tuple>
+#include <type_traits>
+#include <utility>
 // ---------------------------------------------------------------------------------------------------
 namespace imlab {
 

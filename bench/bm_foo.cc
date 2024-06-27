@@ -3,7 +3,6 @@
 // ---------------------------------------------------------------------------
 #include "benchmark/benchmark.h"
 #include "imlab/buffer_manager.h"
-#include "imlab/btree.h"
 #include "imlab/betree.h"
 // ---------------------------------------------------------------------------
 namespace {

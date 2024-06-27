@@ -1,11 +1,13 @@
 // ---------------------------------------------------------------------------------------------------
+#include "imlab/segment_file.h"
+
+#include <cstdlib>
+#include <string>
+#include <system_error>
+
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <unistd.h>
-#include <cstdlib>
-#include <system_error>
-#include <string>
-#include "imlab/segment_file.h"
 // ---------------------------------------------------------------------------------------------------
 namespace imlab {
 

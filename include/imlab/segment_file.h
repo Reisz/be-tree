@@ -4,8 +4,8 @@
 #ifndef INCLUDE_IMLAB_SEGMENT_FILE_H_
 #define INCLUDE_IMLAB_SEGMENT_FILE_H_
 
-#include <stdint.h>
 #include <cstddef>
+#include <cstdint>
 // ---------------------------------------------------------------------------------------------------
 namespace imlab {
 

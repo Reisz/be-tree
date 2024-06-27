@@ -4,6 +4,9 @@
 #ifndef SRC_TEST_CHECK_BETREE_HPP_
 #define SRC_TEST_CHECK_BETREE_HPP_
 // ---------------------------------------------------------------------------------------------------
+#include "imlab/betree.h"
+
+#include <optional>
 #include <vector>
 // ---------------------------------------------------------------------------------------------------
 template<typename Key, typename T, size_t page_size, size_t epsilon,  typename Compare>

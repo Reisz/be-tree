@@ -5,7 +5,11 @@
 #define SRC_BTREE_HPP_
 // ---------------------------------------------------------------------------------------------------
 #include "imlab/btree.h"
+
+#include <algorithm>
+#include <cassert>
 #include <vector>
+#include <utility>
 
 namespace imlab {
 // ---------------------------------------------------------------------------------------------------

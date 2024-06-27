@@ -4,11 +4,13 @@
 #ifndef SRC_BETREE_HPP_
 #define SRC_BETREE_HPP_
 
+#include "imlab/betree.h"
+
 #include <algorithm>
+#include <cassert>
+#include <map>
 #include <utility>
 #include <vector>
-#include <map>
-#include "imlab/betree.h"
 // ---------------------------------------------------------------------------------------------------
 // #define DEBUG_FLUSH
 #ifdef DEBUG_FLUSH

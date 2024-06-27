@@ -1,10 +1,10 @@
 #ifndef INCLUDE_IMLAB_INFRA_BENCH_H_
 #define INCLUDE_IMLAB_INFRA_BENCH_H_
 
-#include <iostream>
-#include <vector>
 #include <algorithm>
 #include <chrono>
+#include <iostream>
+#include <vector>
 
 struct Bencher {
     // timing section

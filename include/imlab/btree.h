@@ -4,11 +4,11 @@
 #ifndef INCLUDE_IMLAB_BTREE_H_
 #define INCLUDE_IMLAB_BTREE_H_
 
-#include <functional>
-#include <utility>
-#include <vector>
-#include <string>
 #include "imlab/segment.h"
+
+#include <functional>
+#include <optional>
+#include <utility>
 // ---------------------------------------------------------------------------------------------------
 namespace imlab {
 

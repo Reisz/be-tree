@@ -4,7 +4,10 @@
 #ifndef SRC_TEST_CHECK_RBTREE_HPP_
 #define SRC_TEST_CHECK_RBTREE_HPP_
 // ---------------------------------------------------------------------------------------------------
+#include "imlab/rbtree.h"
+
 #include <deque>
+#include <optional>
 #include <tuple>
 // ---------------------------------------------------------------------------------------------------
 template<typename Key, size_t page_size, typename Compare, typename... Ts>

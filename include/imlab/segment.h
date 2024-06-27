@@ -4,8 +4,9 @@
 #ifndef INCLUDE_IMLAB_SEGMENT_H_
 #define INCLUDE_IMLAB_SEGMENT_H_
 
-#include <cassert>
 #include "imlab/buffer_manager.h"
+
+#include <cassert>
 // ---------------------------------------------------------------------------------------------------
 namespace imlab {
 

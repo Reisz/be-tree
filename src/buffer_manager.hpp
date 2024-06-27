@@ -4,8 +4,11 @@
 #ifndef SRC_BUFFER_MANAGER_HPP_
 #define SRC_BUFFER_MANAGER_HPP_
 // ---------------------------------------------------------------------------------------------------
-#include "imlab/segment_file.h"
 #include "imlab/buffer_manager.h"
+
+#include "imlab/segment_file.h"
+
+#include <utility>
 // ---------------------------------------------------------------------------------------------------
 namespace imlab {
 
